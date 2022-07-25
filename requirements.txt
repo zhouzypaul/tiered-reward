@@ -1,0 +1,10 @@
+cvxpy==1.2.1
+frozendict==2.3.4
+kiwisolver==1.4.4
+matplotlib==3.5.2
+msdm==0.7
+numpy==1.23.1
+osqp==0.6.2.post5
+pandas==1.4.3
+Pillow==9.2.0
+scipy==1.8.1
