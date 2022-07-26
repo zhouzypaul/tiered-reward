@@ -53,7 +53,7 @@ def plot_grid_reward(gw, plot_name_prefix, results_dir, reward_vec=None, plot_ov
     plt.close()
 
 
-def visualize_grid_world_and_policy(gw, plot_name_prefix, results_dir, plot_simple=False):
+def visualize_grid_world_and_policy(gw, plot_name_prefix, results_dir, policy=None, plot_simple=False):
     """
     for a msdm.GridWorld, visualize three things:
     1) the gridworld itself
@@ -71,7 +71,8 @@ def visualize_grid_world_and_policy(gw, plot_name_prefix, results_dir, plot_simp
     # plot the value function and policy
     value_iter = ModifiedValueIteration()
     planning_result = value_iter.plan_on(gw)
-    policy = planning_result.policy
+    if policy is None:
+        policy = planning_result.policy
     fig, axes = plt.subplots(2, 1)
     gw.plot(ax=axes[0]).plot_state_map(planning_result.valuefunc).title("Value Function")
     gw.plot(ax=axes[1]).plot_policy(policy).title("Policy")
