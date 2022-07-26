@@ -51,9 +51,9 @@ def make_policy(is_pareto, verbose=False):
         is_pareto: whether the policy is pareto
     """
     gamma = 0.95
-    goal_reward = 1
-    lava_penalty = -1
-    step_cost = -0.04 if is_pareto else -0.9
+    goal_reward = 1 if is_pareto else 1
+    lava_penalty = -1 if is_pareto else 1
+    step_cost = -0.04 if is_pareto else 0
     if is_pareto:
         assert lava_penalty < 1/(1-gamma) * step_cost < goal_reward
     
@@ -71,6 +71,7 @@ def make_policy(is_pareto, verbose=False):
         _, ax = plt.subplots(1, 1)
         visualize_rn_grid_policy(policy, ax=ax)
         plt.savefig(f'results/rn_grid_pareto_{is_pareto}.png')
+        plt.close()
     return mdp, policy
 
 
