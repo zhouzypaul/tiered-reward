@@ -1,4 +1,3 @@
-import enum
 import warnings
 import numpy as np
 from collections import defaultdict
