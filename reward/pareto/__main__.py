@@ -122,8 +122,9 @@ def sample_random_policy(mdp: TabularMarkovDecisionProcess) -> TabularPolicy:
     states, actions = get_ordered_state_action_list(mdp)
     n_states = len(states)
     n_actions = len(actions)
-    policy_mat = np.random.rand(n_states, n_actions)
-    policy_mat /= policy_mat.sum(axis=1, keepdims=True)  # normalize
+    random_actions = np.random.choice(n_actions, size=n_states)
+    policy_mat = np.zeros((n_states, n_actions))
+    policy_mat[np.arange(n_states), random_actions] = 1
     return TabularPolicy.from_matrix(states, actions, policy_mat)
 
 
