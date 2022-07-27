@@ -217,6 +217,8 @@ def debug():
 
 
 if __name__ == '__main__':
+    np.random.seed(0)
+
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', action='store_true', default=False)
