@@ -8,3 +8,4 @@ osqp==0.6.2.post5
 pandas==1.4.3
 Pillow==9.2.0
 scipy==1.8.1
+seaborn==0.11.2

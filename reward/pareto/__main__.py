@@ -1,5 +1,6 @@
+import pandas as pd
 import numpy as np
-import msdm
+import seaborn as sns
 from msdm.algorithms import ValueIteration
 from msdm.core.problemclasses.mdp import TabularMarkovDecisionProcess
 from msdm.core.problemclasses.mdp import TabularPolicy
@@ -8,6 +9,12 @@ from matplotlib import pyplot as plt
 from reward.environments import make_russell_norvig_grid
 from reward.environments.russel_norvig import visualize_rn_grid_policy
 from reward.msdm_utils import get_ordered_state_action_list, state_distribution_array
+
+
+# constants for the russell/norvig gridworld
+GOAL = 10
+LAVA = 9
+NUM_STEPS = 20
 
 
 def get_state_distribution(mdp: TabularMarkovDecisionProcess, policy: TabularPolicy, num_steps: int):
@@ -75,22 +82,21 @@ def make_policy(is_pareto, verbose=False):
     return mdp, policy
 
 
-def plot_pareto_policy_termination_prob(num_steps=20):
-    # index of state in the state list
-    goal = 10
-    lava = 9
-
+def plot_pareto_policy_termination_prob(num_steps=NUM_STEPS):
+    """
+    make the plot comparing a pareto policy with a non-pareto one wrt its termination probability
+    """
     # pareto
     pareto_mdp, pareto_policy = make_policy(is_pareto=True, verbose=False)
     pareto_state_dist = get_state_distribution(pareto_mdp, pareto_policy, num_steps=num_steps)
-    pareto_goal_probs = pareto_state_dist[:, goal]
-    pareto_lava_probs = pareto_state_dist[:, lava]
+    pareto_goal_probs = pareto_state_dist[:, GOAL]
+    pareto_lava_probs = pareto_state_dist[:, LAVA]
 
     # non-pareto
     non_pareto_mdp, non_pareto_policy = make_policy(is_pareto=False, verbose=False) 
     non_pareto_state_dist = get_state_distribution(non_pareto_mdp, non_pareto_policy, num_steps=num_steps)
-    non_pareto_goal_probs = non_pareto_state_dist[:, goal]
-    non_pareto_lava_probs = non_pareto_state_dist[:, lava]
+    non_pareto_goal_probs = non_pareto_state_dist[:, GOAL]
+    non_pareto_lava_probs = non_pareto_state_dist[:, LAVA]
 
     # plot
     pareto_color = 'c'
@@ -104,6 +110,91 @@ def plot_pareto_policy_termination_prob(num_steps=20):
     plt.xlabel('Time Step')
     plt.ylabel('Cumulative Probability')
     save_path = 'results/pareto_prob.png'
+    plt.savefig(save_path)
+    print(f'Saved to {save_path}')
+    plt.close()
+
+
+def sample_random_policy(mdp: TabularMarkovDecisionProcess) -> TabularPolicy:
+    """
+    sample a random policy from the MDP
+    """
+    states, actions = get_ordered_state_action_list(mdp)
+    n_states = len(states)
+    n_actions = len(actions)
+    policy_mat = np.random.rand(n_states, n_actions)
+    policy_mat /= policy_mat.sum(axis=1, keepdims=True)  # normalize
+    return TabularPolicy.from_matrix(states, actions, policy_mat)
+
+
+def get_success_and_failure_prob(mdp: TabularMarkovDecisionProcess, policy: TabularPolicy, pareto_state_dist=None, num_steps: int=NUM_STEPS):
+    """
+    given an MDP and a policy, turn the policy into a two-point statistic: (goal_reaching_prob, obstacle_reaching_prob)
+    for each policy, also give it a label, of whether it's pareto or not
+
+    note: this currently only supports the Russel/Norvig Gridworld
+    """
+    state_dist = get_state_distribution(mdp, policy, num_steps=num_steps)
+    goal_prob = state_dist[-1, GOAL]
+    lava_prob = state_dist[-1, LAVA]
+    # pareto label
+    if pareto_state_dist is not None:
+        assert len(pareto_state_dist) == len(state_dist)
+        if np.allclose(pareto_state_dist[:, GOAL], state_dist[:, GOAL]) and np.allclose(pareto_state_dist[:, LAVA], state_dist[:, LAVA]):
+            pareto_label = 'pareto'
+        elif np.all(pareto_state_dist[:, GOAL] >= state_dist[:, GOAL]) and np.all(pareto_state_dist[:, LAVA] <= state_dist[:, LAVA]):
+            pareto_label = 'non-pareto'
+        else:
+            pareto_label = 'non comparable'
+    return goal_prob, lava_prob, pareto_label
+
+
+def __make_pareto_state_dist():
+    mdp, policy = make_policy(is_pareto=True, verbose=False)
+    state_dist = get_state_distribution(mdp, policy, num_steps=NUM_STEPS)
+    return state_dist
+
+
+def random_policy_paretoness_plot(num_polices=5000):
+    """
+    generate a bunch of randon policies, and plot each policy in a 2D grid as (prob_success, prob_fail)
+    """
+    # only need this for state, action list, transition matrix, initial state distribution
+    pseudo_mdp = make_russell_norvig_grid(
+        discount_rate=0.95,
+        slip_prob=0.8,
+        goal_reward=1,
+        lava_penalty=-1,
+        step_cost=-0.04,
+    )
+
+    # pareto state distribution
+    pareto_state_dist = __make_pareto_state_dist()
+    
+    # collect the data
+    stats = np.zeros((num_polices, 2))
+    labels = np.zeros((num_polices,), dtype=object)
+    for i in range(num_polices):
+        if i == 0:
+            # at least one pareto policy
+            _, policy = make_policy(is_pareto=True, verbose=False)
+        else:
+            policy = sample_random_policy(pseudo_mdp)
+        p_goal, p_lava, label = get_success_and_failure_prob(pseudo_mdp, policy, pareto_state_dist)
+        stats[i] = [p_goal, p_lava]
+        labels[i] = label
+    df = pd.DataFrame(stats, columns=['goal', 'lava'])
+    df['label'] = labels
+
+    # plot
+    grid = sns.jointplot(data=df, x='goal', y='lava', hue='label', alpha=0.5)
+    grid.ax_joint.set_xlim(0, 1)
+    grid.ax_joint.set_ylim(0, 1)
+    grid.ax_joint.set_xlabel('Probability of Success')
+    grid.ax_joint.set_ylabel('Probability of Failure')
+    grid.fig.subplots_adjust(right=0.95)
+    # save
+    save_path = 'results/random_policy_paretoness.png'
     plt.savefig(save_path)
     print(f'Saved to {save_path}')
     plt.close()
@@ -129,9 +220,12 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', action='store_true', default=False)
+    parser.add_argument('--random_policy_paretoness', '-r', action='store_true', default=False)
     args = parser.parse_args()
 
     if args.debug:
         debug()
+    elif args.random_policy_paretoness:
+        random_policy_paretoness_plot()
     else:
         plot_pareto_policy_termination_prob()
