@@ -164,7 +164,9 @@ def determine_whether_pareto(goal_timestep_probs, lava_timestep_probs):
     # diagonal is left to be 0, because of how we are labeling stuff below
     domination_matrix = np.zeros((n, n))
     for i in range(n):
-        for j in range(i+1, n):
+        for j in range(n):
+            if i == j:
+                continue
             # [i] is being compared to [j]
             i_goal_prob = goal_timestep_probs[i]
             i_lava_prob = lava_timestep_probs[i]
@@ -172,7 +174,6 @@ def determine_whether_pareto(goal_timestep_probs, lava_timestep_probs):
             j_lava_prob = lava_timestep_probs[j]
             i_dominate_j = _domination(i_goal_prob, i_lava_prob, j_goal_prob, j_lava_prob)
             domination_matrix[i, j] = int(i_dominate_j)
-            domination_matrix[j, i] = int(not i_dominate_j)
     
     # labels
     labels = np.zeros((n,), dtype=object)
