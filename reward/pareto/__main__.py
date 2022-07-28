@@ -185,7 +185,10 @@ def determine_whether_pareto(goal_timestep_probs, lava_timestep_probs):
         returns:
             True if 1 dominates 2, False otherwise
         """
-        return np.all(goal_prob_1 >= goal_prob_2) and np.all(lava_prob_1 <= lava_prob_2)
+        dominating = np.all(goal_prob_1 >= goal_prob_2) and np.all(lava_prob_1 <= lava_prob_2)
+        # prevent the edge case of two policies being identical
+        identical = np.allclose(goal_prob_1, goal_prob_2) and np.allclose(lava_prob_1, lava_prob_2)
+        return dominating and not identical
 
     # create a nxn matrix to keep track of the domination relationships
     # mat[i, j] = 1 if policy i dominates policy j, 0 otherwise
