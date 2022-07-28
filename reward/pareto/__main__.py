@@ -247,6 +247,7 @@ def random_policy_paretoness_plot(num_polices=5000, policy_sample_method=sample_
 
     df = pd.DataFrame(stats, columns=['goal', 'lava'])
     df['label'] = labels
+    df.sort_values(by='goal', inplace=True)
 
     # plot
     grid = sns.jointplot(data=df, x='goal', y='lava', hue='label', alpha=0.5)
