@@ -128,6 +128,34 @@ def sample_random_policy(mdp: TabularMarkovDecisionProcess) -> TabularPolicy:
     return TabularPolicy.from_matrix(states, actions, policy_mat)
 
 
+def sample_random_policy_through_random_reward(mdp: TabularMarkovDecisionProcess) -> TabularPolicy:
+    """
+    sample a random policy by sampling a random reward, and them optimizing it to make the policy
+    args:
+        mdp: not used, keeping it consistent for API 
+    """
+    gamma = 0.95
+    goal_reward = np.random.uniform(-1, 1)
+    lava_penalty = np.random.uniform(-1, goal_reward)
+    # sample step cost
+    upper = (1-gamma) * goal_reward
+    lower = (1-gamma) * lava_penalty
+    step_cost = np.random.uniform(lower, upper)
+    
+    mdp = make_russell_norvig_grid(
+        discount_rate=gamma,
+        slip_prob=0.8,
+        goal_reward=goal_reward,
+        lava_penalty=lava_penalty,
+        step_cost=step_cost,
+    )
+    vi = ValueIteration()
+    result = vi.plan_on(mdp)
+    policy = result.policy
+
+    return policy
+
+
 def get_success_and_failure_prob(mdp: TabularMarkovDecisionProcess, policy: TabularPolicy, num_steps: int=NUM_STEPS):
     """
     given an MDP and a policy, turn the policy into a two-point statistic: (goal_reaching_prob, obstacle_reaching_prob)
@@ -187,7 +215,7 @@ def determine_whether_pareto(goal_timestep_probs, lava_timestep_probs):
     return labels
 
 
-def random_policy_paretoness_plot(num_polices=5000):
+def random_policy_paretoness_plot(num_polices=5000, policy_sample_method=sample_random_policy):
     """
     generate a bunch of randon policies, and plot each policy in a 2D grid as (prob_success, prob_fail)
     """
@@ -205,7 +233,7 @@ def random_policy_paretoness_plot(num_polices=5000):
     prob_of_reaching_goals = np.zeros((num_polices, NUM_STEPS))
     prob_of_reaching_lava = np.zeros((num_polices, NUM_STEPS))
     for i in range(num_polices):
-        policy = sample_random_policy(pseudo_mdp)
+        policy = policy_sample_method(pseudo_mdp)
         p_goals, p_lavas = get_success_and_failure_prob(pseudo_mdp, policy)
         prob_of_reaching_goals[i, :] = p_goals
         prob_of_reaching_lava[i, :] = p_lavas
@@ -255,11 +283,16 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--random_policy_paretoness', '-r', action='store_true', default=False)
     parser.add_argument('--num_policies', '-n', type=int, default=5000)
+    parser.add_argument('--sample_with_reward', '-s', action='store_true', default=False)
     args = parser.parse_args()
 
     if args.debug:
         debug()
     elif args.random_policy_paretoness:
-        random_policy_paretoness_plot(num_polices=args.num_policies)
+        if args.sample_with_reward:
+            sample_method = sample_random_policy_through_random_reward
+        else:
+            sample_method = sample_random_policy
+        random_policy_paretoness_plot(num_polices=args.num_policies, policy_sample_method=sample_method)
     else:
         plot_pareto_policy_termination_prob()

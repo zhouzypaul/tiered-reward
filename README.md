@@ -3,5 +3,5 @@
 ## running
 plot termination probability for pareto rewards:
 ```python
-python -m reward.pareto
+python -m reward.pareto [--options]
 ```
