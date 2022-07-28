@@ -128,32 +128,62 @@ def sample_random_policy(mdp: TabularMarkovDecisionProcess) -> TabularPolicy:
     return TabularPolicy.from_matrix(states, actions, policy_mat)
 
 
-def get_success_and_failure_prob(mdp: TabularMarkovDecisionProcess, policy: TabularPolicy, pareto_state_dist=None, num_steps: int=NUM_STEPS):
+def get_success_and_failure_prob(mdp: TabularMarkovDecisionProcess, policy: TabularPolicy, num_steps: int=NUM_STEPS):
     """
     given an MDP and a policy, turn the policy into a two-point statistic: (goal_reaching_prob, obstacle_reaching_prob)
-    for each policy, also give it a label, of whether it's pareto or not
 
     note: this currently only supports the Russel/Norvig Gridworld
     """
     state_dist = get_state_distribution(mdp, policy, num_steps=num_steps)
-    goal_prob = state_dist[-1, GOAL]
-    lava_prob = state_dist[-1, LAVA]
-    # pareto label
-    if pareto_state_dist is not None:
-        assert len(pareto_state_dist) == len(state_dist)
-        if np.allclose(pareto_state_dist[:, GOAL], state_dist[:, GOAL]) and np.allclose(pareto_state_dist[:, LAVA], state_dist[:, LAVA]):
-            pareto_label = 'pareto'
-        elif np.all(pareto_state_dist[:, GOAL] >= state_dist[:, GOAL]) and np.all(pareto_state_dist[:, LAVA] <= state_dist[:, LAVA]):
-            pareto_label = 'non-pareto'
+    goal_probs = state_dist[:, GOAL]
+    lava_probs = state_dist[:, LAVA]
+    
+    return goal_probs, lava_probs
+
+
+def determine_whether_pareto(goal_timestep_probs, lava_timestep_probs):
+    """
+    given a bunch of goal and lava timestep-wise probabilities, determine which of the policies are on the pareto frontier
+    args:
+        goal_timestep_probs: (n, num_timesteps)
+        lava_timestep_probs: (n, num_timesteps)
+    """
+    assert len(goal_timestep_probs) == len(lava_timestep_probs)
+    n = len(goal_timestep_probs)
+
+    def _domination(goal_prob_1, lava_prob_1, goal_prob_2, lava_prob_2):
+        """
+        given two policies 1 and 2, determine whether 1 dominates 2
+        returns:
+            True if 1 dominates 2, False otherwise
+        """
+        return np.all(goal_prob_1 >= goal_prob_2) and np.all(lava_prob_1 <= lava_prob_2)
+
+    # create a nxn matrix to keep track of the domination relationships
+    # mat[i, j] = 1 if policy i dominates policy j, 0 otherwise
+    # diagonal is left to be 0, because of how we are labeling stuff below
+    domination_matrix = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i+1, n):
+            # [i] is being compared to [j]
+            i_goal_prob = goal_timestep_probs[i]
+            i_lava_prob = lava_timestep_probs[i]
+            j_goal_prob = goal_timestep_probs[j]
+            j_lava_prob = lava_timestep_probs[j]
+            i_dominate_j = _domination(i_goal_prob, i_lava_prob, j_goal_prob, j_lava_prob)
+            domination_matrix[i, j] = int(i_dominate_j)
+            domination_matrix[j, i] = int(not i_dominate_j)
+    
+    # labels
+    labels = np.zeros((n,), dtype=object)
+    # if it gets dominated by something, it is non-pareto
+    for i in range(n):
+        if np.any(domination_matrix[:, i]):
+            labels[i] = 'pareto dominated'
         else:
-            pareto_label = 'non comparable'
-    return goal_prob, lava_prob, pareto_label
-
-
-def __make_pareto_state_dist():
-    mdp, policy = make_policy(is_pareto=True, verbose=False)
-    state_dist = get_state_distribution(mdp, policy, num_steps=NUM_STEPS)
-    return state_dist
+            labels[i] = 'pareto optimal'
+    
+    return labels
 
 
 def random_policy_paretoness_plot(num_polices=5000):
@@ -168,22 +198,21 @@ def random_policy_paretoness_plot(num_polices=5000):
         lava_penalty=-1,
         step_cost=-0.04,
     )
-
-    # pareto state distribution
-    pareto_state_dist = __make_pareto_state_dist()
     
     # collect the data
     stats = np.zeros((num_polices, 2))
-    labels = np.zeros((num_polices,), dtype=object)
+    prob_of_reaching_goals = np.zeros((num_polices, NUM_STEPS))
+    prob_of_reaching_lava = np.zeros((num_polices, NUM_STEPS))
     for i in range(num_polices):
-        if i == 0:
-            # at least one pareto policy
-            _, policy = make_policy(is_pareto=True, verbose=False)
-        else:
-            policy = sample_random_policy(pseudo_mdp)
-        p_goal, p_lava, label = get_success_and_failure_prob(pseudo_mdp, policy, pareto_state_dist)
-        stats[i] = [p_goal, p_lava]
-        labels[i] = label
+        policy = sample_random_policy(pseudo_mdp)
+        p_goals, p_lavas = get_success_and_failure_prob(pseudo_mdp, policy)
+        prob_of_reaching_goals[i, :] = p_goals
+        prob_of_reaching_lava[i, :] = p_lavas
+        stats[i] = [p_goals[-1], p_lavas[-1]]  # last timestep prob
+    
+    # label the policies
+    labels = determine_whether_pareto(prob_of_reaching_goals, prob_of_reaching_lava)
+
     df = pd.DataFrame(stats, columns=['goal', 'lava'])
     df['label'] = labels
 
@@ -224,11 +253,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', action='store_true', default=False)
     parser.add_argument('--random_policy_paretoness', '-r', action='store_true', default=False)
+    parser.add_argument('--num_policies', '-n', type=int, default=5000)
     args = parser.parse_args()
 
     if args.debug:
         debug()
     elif args.random_policy_paretoness:
-        random_policy_paretoness_plot()
+        random_policy_paretoness_plot(num_polices=args.num_policies)
     else:
         plot_pareto_policy_termination_prob()
