@@ -9,3 +9,6 @@ pandas==1.4.3
 Pillow==9.2.0
 scipy==1.8.1
 seaborn==0.11.2
+pfrl==0.3.0
+gym==0.18.3
+git+https://github.com/mila-iqia/atari-representation-learning.git
