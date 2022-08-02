@@ -85,7 +85,7 @@ def make_policy(is_pareto, verbose=False, rn_env=True):
         else: 
             plot = mdp.plot(True)
             plot.pP(policy) # plots policy
-        plt.show() # plt.savefig(f'results/rn_grid_pareto_{is_pareto}.png')
+        plt.savefig(f'results/rn_grid_pareto_{is_pareto}.png')
         plt.close()
     return mdp, policy
 
@@ -118,7 +118,7 @@ def plot_pareto_policy_termination_prob(num_steps=NUM_STEPS, rn_env=True):
     plt.xlabel('Time Step')
     plt.ylabel('Cumulative Probability')
     save_path = 'results/pareto_prob.png'
-    plt.show()#plt.savefig(save_path)
+    plt.savefig(save_path)
     print(f'Saved to {save_path}')
     plt.close()
 
