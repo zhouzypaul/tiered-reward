@@ -58,10 +58,17 @@ class BreakoutTierReward(TierRewardWrapper):
 
     @cached_property
     def bricks_per_tier(self):
-        return self.num_total_bricks / self.num_tiers
+        return self.num_total_bricks / (self.num_tiers-1)
 
     def _get_tier(self, block_hit_count):
-        tier = int(block_hit_count / self.bricks_per_tier)
+        if block_hit_count == self.num_total_bricks:
+            tier = self.num_tiers - 1
+        else:
+            tier = int(block_hit_count / self.bricks_per_tier)
+            try:
+                assert 0 <= tier < self.num_tiers - 1
+            except AssertionError:
+                tier = self.num_tiers - 2  # numerical error
         return tier
 
     def reward(self, reward, info):
@@ -94,6 +101,8 @@ class FreewayTierReward(TierRewardWrapper):
         (this is gotten from playing, the atari manual didn't document the reward function)
     We modify the reward to be:
         tiers are defined in terms of the agent's y position (which car lane it's in)
+        the final tier is at the maximum y_position, because we want to encourage the agent to get
+        there instead of infinitely sicking around the the goal position and not getting there
         the lowest tier has 0 point, each tier would increase the reward by *H* times + delta
     """
     y_max = 177  # after this, the agent is transitioned back to y_min
@@ -101,10 +110,18 @@ class FreewayTierReward(TierRewardWrapper):
 
     @cached_property
     def y_block_per_tier(self):
-        return (self.y_max - self.y_min) / self.num_tiers
+        return (self.y_max - self.y_min) / (self.num_tiers-1)
 
     def _get_tier(self, y_pos):
-        return int((y_pos - self.y_min) / self.y_block_per_tier)
+        if y_pos >= self.y_max:
+            tier = self.num_tiers-1
+        else:
+            tier = int((y_pos - self.y_min) / self.y_block_per_tier)
+            try:
+                assert 0 <= tier < self.num_tiers-1
+            except AssertionError:
+                tier = self.num_tiers-2  # in case of numerical error
+        return tier
     
     def reward(self, reward, info):
         info['original_reward'] = float(reward)
