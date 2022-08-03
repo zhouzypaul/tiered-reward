@@ -1,4 +1,5 @@
-from os import environ
+from functools import cached_property
+
 import gym
 import numpy as np
 
@@ -55,9 +56,12 @@ class BreakoutTierReward(TierRewardWrapper):
     """
     num_total_bricks = 18 * 6 * 2
 
+    @cached_property
+    def bricks_per_tier(self):
+        return self.num_total_bricks / self.num_tiers
+
     def _get_tier(self, block_hit_count):
-        bricks_per_tier = self.num_total_bricks / self.num_tiers
-        tier = int(block_hit_count / bricks_per_tier)
+        tier = int(block_hit_count / self.bricks_per_tier)
         return tier
 
     def reward(self, reward, info):
@@ -79,10 +83,54 @@ class BreakoutTierReward(TierRewardWrapper):
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
 
+class FreewayTierReward(TierRewardWrapper):
+    """
+    In FreewayNoFrameskip-v4, there is only three actions: NOOP, UP, DOWN
+    the chicken on the right cannot be moved. 
+    each action moves the chickin by 1 up/down along the y-axis, as indicated by the ram position
+
+    The original reward is:
+        +1 when the chicken is across the road, 0 else
+        (this is gotten from playing, the atari manual didn't document the reward function)
+    We modify the reward to be:
+        tiers are defined in terms of the agent's y position (which car lane it's in)
+        the lowest tier has 0 point, each tier would increase the reward by *H* times + delta
+    """
+    y_max = 177  # after this, the agent is transitioned back to y_min
+    y_min = 6
+
+    @cached_property
+    def y_block_per_tier(self):
+        return (self.y_max - self.y_min) / self.num_tiers
+
+    def _get_tier(self, y_pos):
+        return int((y_pos - self.y_min) / self.y_block_per_tier)
+    
+    def reward(self, reward, info):
+        info['original_reward'] = float(reward)
+
+        if self.keep_original_reward:
+            return reward
+        
+        tier = self._get_tier(info['labels']['player_y'])
+        if tier == 0:
+            reward = 0
+        else:
+            reward = self.h ** (tier-1) + self.delta
+        return reward
+    
+    def log_tier_hitting_count(self, info):
+        tier = self._get_tier(info['labels']['player_y'])
+        self.tiers_hitting_count[tier] += 1
+        info['tiers_hitting_count'] = self.tiers_hitting_count
+
+
 def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
     env_id = (env.spec.id).lower()
     if 'breakout' in env_id:
         env = BreakoutTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+    elif 'freeway' in env_id:
+        env = FreewayTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
     else:
         raise NotImplementedError
     return env
