@@ -17,6 +17,16 @@ class TierRewardWrapper(gym.Wrapper):
         self.delta = 0.1  # good tier r = H * prev tier + delta 
         self.tiers_hitting_count = np.zeros(num_tiers, dtype=np.int32)
     
+    def reset_hitting_count(self):
+        """"""
+        assert self.keep_original_reward
+        self.tiers_hitting_count = np.zeros(self.num_tiers, dtype=np.int32)
+
+    def reset(self, reset_count=False, **kwargs):
+        if reset_count:
+            self.reset_hitting_count()
+        return self.env.reset(**kwargs)
+    
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
         reward = self.reward(reward, info)

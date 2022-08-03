@@ -7,7 +7,7 @@ from collections import deque
 import numpy as np
 from pfrl import experiments
 from pfrl import utils
-from pfrl.experiments.evaluator import Evaluator, save_agent
+from pfrl.experiments.evaluator import save_agent
 
 from reward.atari.agent import make_agent
 from reward.atari.env import make_batch_env, make_env
@@ -18,17 +18,151 @@ def safe_mean(xs):
     return np.nan if len(xs) == 0 else np.mean(xs)
 
 
-def train_agent_batch(
+def batch_run_eval_episodes(
+    env,
+    agent,
+    n_steps,
+    n_episodes,
+    max_episode_len=None,
+    logger=None,
+):
+    """Run multiple episodes and return returns in a batch manner."""
+    with agent.eval_mode():
+        assert not agent.training
+        assert (n_steps is None) != (n_episodes is None)
+
+        logger = logger or logging.getLogger(__name__)
+        num_envs = env.num_envs
+        episode_returns = dict()
+        episode_lengths = dict()
+        episode_tier_hitting_count = dict()
+        episode_indices = np.zeros(num_envs, dtype="i")
+        episode_idx = 0
+        for i in range(num_envs):
+            episode_indices[i] = episode_idx
+            episode_idx += 1
+        episode_r = np.zeros(num_envs, dtype=np.float64)
+        episode_len = np.zeros(num_envs, dtype="i")
+
+        obss = env.reset()
+        rs = np.zeros(num_envs, dtype="f")
+
+        termination_conditions = False
+        timestep = 0
+        while True:
+            # a_t
+            actions = agent.batch_act(obss)
+            timestep += 1
+            # o_{t+1}, r_{t+1}
+            obss, rs, dones, infos = env.step(actions)
+            episode_r += rs
+            episode_len += 1
+            # Compute mask for done and reset
+            if max_episode_len is None:
+                resets = np.zeros(num_envs, dtype=bool)
+            else:
+                resets = episode_len == max_episode_len
+            resets = np.logical_or(
+                resets, [info.get("needs_reset", False) for info in infos]
+            )
+
+            # Make mask. 0 if done/reset, 1 if pass
+            end = np.logical_or(resets, dones)
+            not_end = np.logical_not(end)
+
+            for index in range(len(end)):
+                if end[index]:
+                    episode_returns[episode_indices[index]] = episode_r[index]
+                    episode_lengths[episode_indices[index]] = episode_len[index]
+                    episode_tier_hitting_count[episode_indices[index]] = infos[index]['tiers_hitting_count']
+                    # Give the new episode an a new episode index
+                    episode_indices[index] = episode_idx
+                    episode_idx += 1
+
+            episode_r[end] = 0
+            episode_len[end] = 0
+
+            # find first unfinished episode
+            first_unfinished_episode = 0
+            while first_unfinished_episode in episode_returns:
+                first_unfinished_episode += 1
+
+            # Check for termination conditions
+            eval_episode_returns = []
+            eval_episode_lens = []
+            eval_epsisode_tier_hitting_count = []
+            if n_steps is not None:
+                total_time = 0
+                for index in range(first_unfinished_episode):
+                    total_time += episode_lengths[index]
+                    # If you will run over allocated steps, quit
+                    if total_time > n_steps:
+                        break
+                    else:
+                        eval_episode_returns.append(episode_returns[index])
+                        eval_episode_lens.append(episode_lengths[index])
+                        eval_epsisode_tier_hitting_count.append(episode_tier_hitting_count[index])
+                termination_conditions = total_time >= n_steps
+                if not termination_conditions:
+                    unfinished_index = np.where(
+                        episode_indices == first_unfinished_episode
+                    )[0]
+                    if total_time + episode_len[unfinished_index] >= n_steps:
+                        termination_conditions = True
+                        if first_unfinished_episode == 0:
+                            eval_episode_returns.append(episode_r[unfinished_index])
+                            eval_episode_lens.append(episode_len[unfinished_index])
+                            eval_epsisode_tier_hitting_count.append(episode_tier_hitting_count[unfinished_index])
+
+            else:
+                termination_conditions = first_unfinished_episode >= n_episodes
+                if termination_conditions:
+                    # Get the first n completed episodes
+                    for index in range(n_episodes):
+                        eval_episode_returns.append(episode_returns[index])
+                        eval_episode_lens.append(episode_lengths[index])
+                        eval_epsisode_tier_hitting_count.append(episode_tier_hitting_count[index])
+
+            if termination_conditions:
+                # If this is the last step, make sure the agent observes reset=True
+                resets.fill(True)
+
+            # Agent observes the consequences.
+            agent.batch_observe(obss, rs, dones, resets)
+
+            if termination_conditions:
+                break
+            else:
+                obss = env.reset(not_end, reset_count=True)
+
+        for i, (epi_len, epi_ret) in enumerate(
+            zip(eval_episode_lens, eval_episode_returns)
+        ):
+            logger.info("evaluation episode %s length: %s R: %s", i, epi_len, epi_ret)
+
+        results = {
+            'eval_episode_returns': eval_episode_returns,
+            'eval_episode_lens': eval_episode_lens,
+            'eval_epsisode_tier_hitting_count': eval_epsisode_tier_hitting_count,
+        }
+    
+    assert agent.training
+    return results
+
+
+def train_agent_batch_with_evaluation(
     agent,
     env,
+    eval_env,
     steps,
     outdir,
+    eval_n_steps=None,
+    eval_n_episodes=None,
+    eval_interval=None,
     checkpoint_freq=None,
     log_interval=None,
     max_episode_len=None,
     step_offset=0,
-    evaluator=None,
-    successful_score=None,
     step_hooks=(),
     return_window_size=100,
     logger=None,
@@ -60,6 +194,8 @@ def train_agent_batch(
     """
 
     logger = logger or logging.getLogger(__name__)
+    os.makedirs(outdir, exist_ok=True)
+
     recent_returns = deque(maxlen=return_window_size)
     recent_original_returns = deque(maxlen=return_window_size)
 
@@ -146,19 +282,35 @@ def train_agent_batch(
                     kvlogger.logkv(stats[0], stats[1])
                 kvlogger.dumpkvs()
 
-            if evaluator:
-                eval_score = evaluator.evaluate_if_necessary(
-                    t=t, episodes=np.sum(episode_idx)
+            # evaluation
+            if (
+                eval_interval is not None
+                and t >= eval_interval
+                and t % eval_interval < num_envs
+            ):
+                eval_results = batch_run_eval_episodes(
+                    env=eval_env,
+                    agent=agent,
+                    n_steps=eval_n_steps,
+                    n_episodes=eval_n_episodes,
+                    max_episode_len=max_episode_len,
+                    logger=logger,
                 )
-                if eval_score is not None:
-                    eval_stats = dict(agent.get_statistics())
-                    eval_stats["eval_score"] = eval_score
-                    eval_stats_history.append(eval_stats)
-                    if (
-                        successful_score is not None
-                        and evaluator.max_score >= successful_score
-                    ):
-                        break
+                # log results 
+                make_eval_logger(outdir)
+                for i in range(eval_n_episodes):
+                    # log each eval episode's stats on a new line
+                    kvlogger.logkv('steps', t)
+                    kvlogger.logkv('eval_episode_idx', i)
+                    for stat, stat_val in eval_results.items():
+                        val = stat_val[i]
+                        if 'tier' in stat:
+                            for i_tier in range(len(val)):
+                                kvlogger.logkv(f'eval_tier_{i_tier}_hitting_count', val[i_tier])
+                        else:
+                            kvlogger.logkv(stat, val)
+                    kvlogger.dumpkvs()
+                make_train_logger(outdir)
 
             if t >= steps:
                 break
@@ -183,117 +335,12 @@ def train_agent_batch(
     return eval_stats_history
 
 
-def train_agent_batch_with_evaluation(
-    agent,
-    env,
-    steps,
-    eval_n_steps,
-    eval_n_episodes,
-    eval_interval,
-    outdir,
-    checkpoint_freq=None,
-    max_episode_len=None,
-    step_offset=0,
-    eval_max_episode_len=None,
-    return_window_size=100,
-    eval_env=None,
-    log_interval=None,
-    successful_score=None,
-    step_hooks=(),
-    evaluation_hooks=(),
-    save_best_so_far_agent=True,
-    use_tensorboard=False,
-    logger=None,
-):
-    """Train an agent while regularly evaluating it.
-
-    Args:
-        agent: Agent to train.
-        env: Environment train the againt against.
-        steps (int): Number of total time steps for training.
-        eval_n_steps (int): Number of timesteps at each evaluation phase.
-        eval_n_runs (int): Number of runs for each time of evaluation.
-        eval_interval (int): Interval of evaluation.
-        outdir (str): Path to the directory to output things.
-        log_interval (int): Interval of logging.
-        checkpoint_freq (int): frequency with which to store networks
-        max_episode_len (int): Maximum episode length.
-        step_offset (int): Time step from which training starts.
-        return_window_size (int): Number of training episodes used to estimate
-            the average returns of the current agent.
-        eval_max_episode_len (int or None): Maximum episode length of
-            evaluation runs. If set to None, max_episode_len is used instead.
-        eval_env: Environment used for evaluation.
-        successful_score (float): Finish training if the mean score is greater
-            or equal to thisvalue if not None
-        step_hooks (Sequence): Sequence of callable objects that accepts
-            (env, agent, step) as arguments. They are called every step.
-            See pfrl.experiments.hooks.
-        evaluation_hooks (Sequence): Sequence of
-            pfrl.experiments.evaluation_hooks.EvaluationHook objects. They are
-            called after each evaluation.
-        save_best_so_far_agent (bool): If set to True, after each evaluation,
-            if the score (= mean return of evaluation episodes) exceeds
-            the best-so-far score, the current agent is saved.
-        use_tensorboard (bool): Additionally log eval stats to tensorboard
-        logger (logging.Logger): Logger used in this function.
-    Returns:
-        agent: Trained agent.
-        eval_stats_history: List of evaluation episode stats dict.
-    """
-
-    logger = logger or logging.getLogger(__name__)
-
-    for hook in evaluation_hooks:
-        if not hook.support_train_agent_batch:
-            raise ValueError(
-                "{} does not support train_agent_batch_with_evaluation().".format(hook)
-            )
-
-    os.makedirs(outdir, exist_ok=True)
-
-    if eval_env is None:
-        eval_env = env
-
-    if eval_max_episode_len is None:
-        eval_max_episode_len = max_episode_len
-
-    evaluator = Evaluator(
-        agent=agent,
-        n_steps=eval_n_steps,
-        n_episodes=eval_n_episodes,
-        eval_interval=eval_interval,
-        outdir=outdir,
-        max_episode_len=eval_max_episode_len,
-        env=eval_env,
-        step_offset=step_offset,
-        evaluation_hooks=evaluation_hooks,
-        save_best_so_far_agent=save_best_so_far_agent,
-        use_tensorboard=use_tensorboard,
-        logger=logger,
-    )
-
-    eval_stats_history = train_agent_batch(
-        agent,
-        env,
-        steps,
-        outdir,
-        checkpoint_freq=checkpoint_freq,
-        max_episode_len=max_episode_len,
-        step_offset=step_offset,
-        evaluator=evaluator,
-        successful_score=successful_score,
-        return_window_size=return_window_size,
-        log_interval=log_interval,
-        step_hooks=step_hooks,
-        logger=logger,
-    )
-
-    return agent, eval_stats_history
-
-
-def make_logger(log_dir):
+def make_train_logger(log_dir):
     kvlogger.configure(dir=log_dir, format_strs=['csv', 'stdout'])
+
+
+def make_eval_logger(log_dir):
+    kvlogger.configure(dir=log_dir, format_strs=['csv'], log_suffix='_eval')
 
 
 def main():
@@ -383,7 +430,7 @@ def main():
         experiment_name += "-original-reward"
     args.outdir = experiments.prepare_output_dir(args, args.outdir, exp_id=experiment_name, make_backup=False)
     print("Output files are saved in {}".format(args.outdir))
-    make_logger(args.outdir)
+    make_train_logger(args.outdir)
 
     # agent
     sample_env = make_env(args.env, seed=0, max_frames=args.max_frames, test=False)
@@ -398,7 +445,7 @@ def main():
     train_agent_batch_with_evaluation(
         agent=agent,
         env=make_batch_env(args.env, args.num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=args.original_reward, test=False),
-        eval_env=make_batch_env(args.env, args.num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=args.original_reward, test=True),
+        eval_env=make_batch_env(args.env, args.num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=True, test=True),
         steps=args.steps,
         eval_n_steps=None,
         eval_n_episodes=args.eval_n_runs,

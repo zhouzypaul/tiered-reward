@@ -6,6 +6,7 @@ from atariari.benchmark.wrapper import AtariARIWrapper
 from pfrl.wrappers import atari_wrappers
 
 from reward.atari.reward_wrappers import wrap_tier_rewards
+from reward.atari.vec_env import VectorFrameStack, MultiprocessVectorEnv
 
 
 def make_env(env_id, seed, max_frames, num_tiers=15, original_reward=False, test=False):
@@ -41,11 +42,11 @@ def make_batch_env(env_id, num_envs, seeds, max_frames, num_tiers, original_rewa
     if original_reward:
         print('making environment with original reward function')
     assert len(seeds) == num_envs
-    vec_env = pfrl.envs.MultiprocessVectorEnv(
+    vec_env = MultiprocessVectorEnv(
         [
             functools.partial(make_env, env_id, seeds[idx], max_frames, num_tiers, original_reward, test)
             for idx, env in enumerate(range(num_envs))
         ]
     )
-    vec_env = pfrl.wrappers.VectorFrameStack(vec_env, 4)
+    vec_env = VectorFrameStack(vec_env, 4)
     return vec_env
