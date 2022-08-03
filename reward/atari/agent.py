@@ -112,6 +112,7 @@ def make_agent(args, n_actions):
         clip_delta=args.clip_delta,
         update_interval=args.update_interval,
         batch_accumulator="sum",
+        minibatch_size=args.batch_size,
         phi=phi,
     )
 

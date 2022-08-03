@@ -1,4 +1,5 @@
 import os
+import time
 import argparse
 import logging
 from collections import deque
@@ -68,6 +69,8 @@ def train_agent_batch(
     episode_idx = np.zeros(num_envs, dtype="i")
     episode_len = np.zeros(num_envs, dtype="i")
 
+    time_start = time.perf_counter()
+
     # o_0, r_0
     obss = env.reset()
     kvlogger.info("Starting training, for {} steps".format(steps))
@@ -83,8 +86,6 @@ def train_agent_batch(
             actions = agent.batch_act(obss)
             # o_{t+1}, r_{t+1}
             obss, rs, dones, infos = env.step(actions)
-            if max(rs) > 0:
-                print(rs)
             episode_r += rs
             episode_original_r += np.array([info['original_reward'] for info in infos])
             episode_len += 1
@@ -129,6 +130,9 @@ def train_agent_batch(
                 and t >= log_interval
                 and t % log_interval < num_envs
             ):
+                time_now = time.perf_counter()
+                fps = int(t * 4 / (time_now - time_start))
+                kvlogger.logkv("fps", fps)
                 kvlogger.logkv('steps', t)
                 kvlogger.logkv('ep_reward_mean', np.mean(episode_r))
                 kvlogger.logkv('ep_len_mean', np.mean(episode_len))
@@ -297,9 +301,9 @@ def main():
     # experiment settings
     parser.add_argument("--env", type=str, default="Breakout")
     parser.add_argument("--steps", type=int, default=2 * 10**7)
-    parser.add_argument("--num_tiers", type=int, default=15,
+    parser.add_argument("--num-tiers", type=int, default=15,
                         help="Number of tiers to use in the custom reward function")
-    parser.add_argument("--original_reward", "-o", action="store_true", default=False,
+    parser.add_argument("--original-reward", "-o", action="store_true", default=False,
                         help="Use the original reward function")
     parser.add_argument("--num-envs", type=int, default=8)
 
@@ -340,6 +344,7 @@ def main():
     )
 
     # hyperparams
+    parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--final-exploration-frames", type=int, default=10**6)
     parser.add_argument("--final-epsilon", type=float, default=0.01)
     parser.add_argument("--eval-epsilon", type=float, default=0.001)
