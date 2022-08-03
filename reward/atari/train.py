@@ -348,7 +348,7 @@ def main():
     # experiment settings
     parser.add_argument("--env", type=str, default="Breakout")
     parser.add_argument("--steps", type=int, default=2 * 10**7)
-    parser.add_argument("--num-tiers", type=int, default=15,
+    parser.add_argument("--num-tiers", "-t", type=int, default=15,
                         help="Number of tiers to use in the custom reward function")
     parser.add_argument("--original-reward", "-o", action="store_true", default=False,
                         help="Use the original reward function")
