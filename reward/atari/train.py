@@ -83,6 +83,8 @@ def train_agent_batch(
             actions = agent.batch_act(obss)
             # o_{t+1}, r_{t+1}
             obss, rs, dones, infos = env.step(actions)
+            if max(rs) > 0:
+                print(rs)
             episode_r += rs
             episode_original_r += np.array([info['original_reward'] for info in infos])
             episode_len += 1
@@ -293,10 +295,12 @@ def make_logger(log_dir):
 def main():
     parser = argparse.ArgumentParser()
     # experiment settings
-    parser.add_argument("--env", type=str, default="BreakoutNoFrameskip-v4")
+    parser.add_argument("--env", type=str, default="Breakout")
     parser.add_argument("--steps", type=int, default=2 * 10**7)
-    parser.add_argument("--num_tiers", type=int, default=5,
+    parser.add_argument("--num_tiers", type=int, default=15,
                         help="Number of tiers to use in the custom reward function")
+    parser.add_argument("--original_reward", "-o", action="store_true", default=False,
+                        help="Use the original reward function")
     parser.add_argument("--num-envs", type=int, default=8)
 
     # configs
@@ -358,11 +362,27 @@ def main():
 
     args = parser.parse_args()
 
-    import logging
-    logging.basicConfig(level=args.log_level)
+    # process args
+    args.env = args.env + 'NoFrameskip-v4'
 
     # Set a random seed used in PFRL.
     utils.set_random_seed(args.seed)
+
+    # logging
+    import logging
+    logging.basicConfig(level=args.log_level)
+
+    # saving dir
+    experiment_name = f"{args.env}-{args.num_tiers}-tiers"
+    if args.original_reward:
+        experiment_name += "-original-reward"
+    args.outdir = experiments.prepare_output_dir(args, args.outdir, exp_id=experiment_name, make_backup=False)
+    print("Output files are saved in {}".format(args.outdir))
+    make_logger(args.outdir)
+
+    # agent
+    sample_env = make_env(args.env, seed=0, max_frames=args.max_frames, test=False)
+    agent = make_agent(args, n_actions=sample_env.action_space.n)
 
     # Set different random seeds for different subprocesses.
     # If seed=0 and processes=4, subprocess seeds are [0, 1, 2, 3].
@@ -370,19 +390,10 @@ def main():
     process_seeds = np.arange(args.num_envs, dtype=int) + args.seed * args.num_envs
     assert process_seeds.max() < 2**32
 
-    experiment_name = f"{args.env}-{args.num_tiers}-tiers"
-    args.outdir = experiments.prepare_output_dir(args, args.outdir, exp_id=experiment_name, make_backup=False)
-    print("Output files are saved in {}".format(args.outdir))
-    make_logger(args.outdir)
-
-    sample_env = make_env(args.env, seed=0, max_frames=args.max_frames, test=False)
-
-    agent = make_agent(args, n_actions=sample_env.action_space.n)
-
     train_agent_batch_with_evaluation(
         agent=agent,
-        env=make_batch_env(args.env, args.num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, test=False),
-        eval_env=make_batch_env(args.env, args.num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, test=True),
+        env=make_batch_env(args.env, args.num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=args.original_reward, test=False),
+        eval_env=make_batch_env(args.env, args.num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=args.original_reward, test=True),
         steps=args.steps,
         eval_n_steps=None,
         eval_n_episodes=args.eval_n_runs,

@@ -7,10 +7,12 @@ class TierRewardWrapper(gym.Wrapper):
     """
     modify the reward() function to make the reward tiered
     """
-    def __init__(self, env, num_tiers, gamma):
+    def __init__(self, env, num_tiers, gamma, keep_original_reward=False):
         super().__init__(env)
         self.num_tiers = num_tiers
         self.gamma = gamma
+        self.keep_original_reward = keep_original_reward
+
         self.h = 1 / (1-gamma)
         self.delta = 0.1  # good tier r = H * prev tier + delta 
         self.tiers_hitting_count = np.zeros(num_tiers, dtype=np.int32)
@@ -50,6 +52,10 @@ class BreakoutTierReward(TierRewardWrapper):
 
     def reward(self, reward, info):
         info['original_reward'] = float(reward)
+
+        if self.keep_original_reward:
+            return reward
+
         tier = self._get_tier(info['labels']['blocks_hit_count'])
         if tier == 0:
             reward = 0
@@ -63,10 +69,10 @@ class BreakoutTierReward(TierRewardWrapper):
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
 
-def wrap_tier_rewards(env, num_tiers, gamma):
+def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
     env_id = (env.spec.id).lower()
     if 'breakout' in env_id:
-        env = BreakoutTierReward(env, num_tiers=num_tiers, gamma=gamma)
+        env = BreakoutTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
     else:
         raise NotImplementedError
     return env

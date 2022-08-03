@@ -8,7 +8,7 @@ from pfrl.wrappers import atari_wrappers
 from reward.atari.reward_wrappers import wrap_tier_rewards
 
 
-def make_env(env_id, seed, max_frames, num_tiers=5, test=False):
+def make_env(env_id, seed, max_frames, num_tiers=15, original_reward=False, test=False):
     # Use different random seeds for train and test envs
     env_seed = int(2**32 - 1 - seed if test else seed)
 
@@ -18,7 +18,7 @@ def make_env(env_id, seed, max_frames, num_tiers=5, test=False):
     assert is_atari
     env = AtariARIWrapper(env)
 
-    env = wrap_tier_rewards(env, num_tiers=num_tiers, gamma=0.99)
+    env = wrap_tier_rewards(env, num_tiers=num_tiers, gamma=0.99, keep_original_reward=original_reward)
 
     env = atari_wrappers.wrap_deepmind(
         env,
@@ -37,11 +37,13 @@ def make_env(env_id, seed, max_frames, num_tiers=5, test=False):
     return env
 
 
-def make_batch_env(env_id, num_envs, seeds, max_frames, num_tiers, test):
+def make_batch_env(env_id, num_envs, seeds, max_frames, num_tiers, original_reward, test):
+    if original_reward:
+        print('making environment with original reward function')
     assert len(seeds) == num_envs
     vec_env = pfrl.envs.MultiprocessVectorEnv(
         [
-            functools.partial(make_env, env_id, seeds[idx], max_frames, num_tiers, test)
+            functools.partial(make_env, env_id, seeds[idx], max_frames, num_tiers, original_reward, test)
             for idx, env in enumerate(range(num_envs))
         ]
     )
