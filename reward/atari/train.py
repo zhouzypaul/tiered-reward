@@ -305,7 +305,7 @@ def main():
                         help="Number of tiers to use in the custom reward function")
     parser.add_argument("--original-reward", "-o", action="store_true", default=False,
                         help="Use the original reward function")
-    parser.add_argument("--num-envs", type=int, default=8)
+    parser.add_argument("--num-envs", type=int, default=32)
 
     # configs
     parser.add_argument(
