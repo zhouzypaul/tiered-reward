@@ -325,7 +325,7 @@ def main():
     parser.add_argument(
         "--arch",
         type=str,
-        default="doubledqn",
+        default="nature",
         choices=["nature", "nips", "dueling", "doubledqn"],
     )
     parser.add_argument(
@@ -355,7 +355,7 @@ def main():
         help="Use prioritized experience replay.",
     )
     parser.add_argument("--n-step-return", type=int, default=1)
-    
+
     args = parser.parse_args()
 
     import logging

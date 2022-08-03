@@ -24,7 +24,9 @@ def make_env(env_id, seed, max_frames, num_tiers=5, test=False):
         env,
         episode_life=not test,
         clip_rewards=not test,
-        frame_stack=False,
+        frame_stack=False,  # because we are doing vector frame stack
+        scale=False,
+        fire_reset=True,
     )
 
     # if test:
