@@ -370,7 +370,8 @@ def main():
     process_seeds = np.arange(args.num_envs, dtype=int) + args.seed * args.num_envs
     assert process_seeds.max() < 2**32
 
-    args.outdir = experiments.prepare_output_dir(args, args.outdir, exp_id=args.env, make_backup=False)
+    experiment_name = f"{args.env}-{args.num_tiers}-tiers"
+    args.outdir = experiments.prepare_output_dir(args, args.outdir, exp_id=experiment_name, make_backup=False)
     print("Output files are saved in {}".format(args.outdir))
     make_logger(args.outdir)
 
