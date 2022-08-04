@@ -257,11 +257,6 @@ def get_current():
 
 
 class Logger(object):
-    DEFAULT = None  # A logger with no output files. (See right below class definition)
-                    # So that you can still log to the terminal without setting up any output files
-    CURRENT = None  # Current logger being used by the free functions above
-    ALTERNATIVE = None  # Another logger that can be used, that is saved
-
     def __init__(self, dir, output_formats, comm=None):
         self.name2val = defaultdict(float)  # values this iteration
         self.name2cnt = defaultdict(int)
@@ -355,9 +350,10 @@ def configure(dir=None, format_strs=None, comm=None, log_suffix=''):
     format_strs = filter(None, format_strs)
     output_formats = [make_output_format(f, dir, log_suffix) for f in format_strs]
 
-    Logger.CURRENT = Logger(dir=dir, output_formats=output_formats, comm=comm)
+    logger = Logger(dir=dir, output_formats=output_formats, comm=comm)
     if output_formats:
-        log('Logging to %s'%dir)
+        logger.log('Logging to %s'%dir)
+    return logger
 
 def _configure_default_logger():
     configure()

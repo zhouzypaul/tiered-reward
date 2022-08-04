@@ -194,6 +194,8 @@ def train_agent_batch_with_evaluation(
     """
 
     logger = logger or logging.getLogger(__name__)
+    train_logger = make_train_logger(outdir)
+    eval_logger = make_eval_logger(outdir)
     os.makedirs(outdir, exist_ok=True)
 
     recent_returns = deque(maxlen=return_window_size)
@@ -209,7 +211,7 @@ def train_agent_batch_with_evaluation(
 
     # o_0, r_0
     obss = env.reset()
-    kvlogger.info("Starting training, for {} steps".format(steps))
+    print("Starting training, for {} steps".format(steps))
 
     t = step_offset
     if hasattr(agent, "t"):
@@ -268,19 +270,19 @@ def train_agent_batch_with_evaluation(
             ):
                 time_now = time.perf_counter()
                 fps = int(t * 4 / (time_now - time_start))
-                kvlogger.logkv("fps", fps)
-                kvlogger.logkv('steps', t)
-                kvlogger.logkv('ep_reward_mean', np.mean(episode_r))
-                kvlogger.logkv('ep_len_mean', np.mean(episode_len))
-                kvlogger.logkv('recent_returns', safe_mean(recent_returns))
-                kvlogger.logkv('ep_original_reward_mean', np.mean(episode_original_r))
-                kvlogger.logkv('ep_original_returns', safe_mean(recent_original_returns))
+                train_logger.logkv("fps", fps)
+                train_logger.logkv('steps', t)
+                train_logger.logkv('ep_reward_mean', np.mean(episode_r))
+                train_logger.logkv('ep_len_mean', np.mean(episode_len))
+                train_logger.logkv('recent_returns', safe_mean(recent_returns))
+                train_logger.logkv('ep_original_reward_mean', np.mean(episode_original_r))
+                train_logger.logkv('ep_original_returns', safe_mean(recent_original_returns))
                 tiers_hitting_count = np.sum([info['tiers_hitting_count'] for info in infos], axis=0)
                 for tier, count in enumerate(tiers_hitting_count):
-                    kvlogger.logkv('tier_{}_hitting_count'.format(tier), count)
+                    train_logger.logkv('tier_{}_hitting_count'.format(tier), count)
                 for stats in agent.get_statistics():
-                    kvlogger.logkv(stats[0], stats[1])
-                kvlogger.dumpkvs()
+                    train_logger.logkv(stats[0], stats[1])
+                train_logger.dumpkvs()
 
             # evaluation
             if (
@@ -297,19 +299,18 @@ def train_agent_batch_with_evaluation(
                     logger=logger,
                 )
                 # log results 
-                with kvlogger.switch_logger(outdir, format_strs=['csv'], log_suffix='_eval'):
-                    for i in range(eval_n_episodes):
-                        # log each eval episode's stats on a new line
-                        kvlogger.logkv('steps', t)
-                        kvlogger.logkv('eval_episode_idx', i)
-                        for stat, stat_val in eval_results.items():
-                            val = stat_val[i]
-                            if 'tier' in stat:
-                                for i_tier in range(len(val)):
-                                    kvlogger.logkv(f'eval_tier_{i_tier}_hitting_count', val[i_tier])
-                            else:
-                                kvlogger.logkv(stat, val)
-                        kvlogger.dumpkvs()
+                for i in range(eval_n_episodes):
+                    # log each eval episode's stats on a new line
+                    eval_logger.logkv('steps', t)
+                    eval_logger.logkv('eval_episode_idx', i)
+                    for stat, stat_val in eval_results.items():
+                        val = stat_val[i]
+                        if 'tier' in stat:
+                            for i_tier in range(len(val)):
+                                eval_logger.logkv(f'eval_tier_{i_tier}_hitting_count', val[i_tier])
+                        else:
+                            eval_logger.logkv(stat, val)
+                    eval_logger.dumpkvs()
 
             if t >= steps:
                 break
@@ -326,16 +327,24 @@ def train_agent_batch_with_evaluation(
         # env.close()
         # if evaluator:
         #     evaluator.env.close()
+        train_logger.close()
+        eval_logger.close()
         raise
     else:
         # Save the final model
         save_agent(agent, t, outdir, logger, suffix="_finish")
+        train_logger.close()
+        eval_logger.close()
 
     return eval_stats_history
 
 
 def make_train_logger(log_dir):
-    kvlogger.configure(dir=log_dir, format_strs=['csv', 'stdout'])
+    return kvlogger.configure(dir=log_dir, format_strs=['csv', 'stdout'])
+
+
+def make_eval_logger(log_dir):
+    return kvlogger.configure(dir=log_dir, format_strs=['csv'], log_suffix='_eval')
 
 
 def main():
@@ -425,10 +434,9 @@ def main():
         experiment_name += "-original-reward"
     args.outdir = experiments.prepare_output_dir(args, args.outdir, exp_id=experiment_name, make_backup=False)
     print("Output files are saved in {}".format(args.outdir))
-    make_train_logger(args.outdir)
 
     # agent
-    sample_env = make_env(args.env, seed=0, max_frames=args.max_frames, test=False)
+    sample_env = make_env(args.env, seed=0, num_tiers=args.num_tiers, max_frames=args.max_frames, test=False)
     agent = make_agent(args, n_actions=sample_env.action_space.n)
 
     # Set different random seeds for different subprocesses.
@@ -446,7 +454,7 @@ def main():
         eval_n_episodes=args.eval_n_runs,
         eval_interval=args.eval_interval,
         outdir=args.outdir,
-        log_interval=10000,
+        log_interval=1,  # TODO
     )
 
 
