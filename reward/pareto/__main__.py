@@ -14,13 +14,6 @@ from reward.environments.russell_norvig import visualize_rn_grid_policy
 from reward.msdm_utils import get_ordered_state_action_list, state_distribution_array
 
 
-# constants for the russell/norvig gridworld
-# TODO: this needs to change 
-GOAL = 10
-LAVA = 9
-NUM_STEPS = 20
-
-
 def get_state_distribution(mdp: TabularMarkovDecisionProcess, policy: TabularPolicy, num_steps: int):
     """
     given an MDP and a corresponding policy, calculate the state ditribution at each timestep
@@ -57,9 +50,6 @@ def make_env(env_name, **params):
     """
     make the environement
     """
-    assert 'discount_rate' in params
-    assert 'slip_prob' in params
-
     if env_name == 'russell_norvig':
         return make_russell_norvig_grid(**params)
     elif env_name == 'puddle':
@@ -127,21 +117,32 @@ def make_policy(env_name, is_pareto, verbose=False):
     return mdp, policy
 
 
-def plot_pareto_policy_termination_prob(env_name, num_steps=NUM_STEPS, verbose=False):
+def _accumulate_state_distribution(state_dist):
+    """
+    if there are multiple states of the same feature (e.g. multiple puddles)
+    we want to sum the distribution over all the states of the same feature
+    """
+    if state_dist.ndim == 1:
+        return state_dist
+    else:
+        return state_dist.sum(axis=1)
+
+
+def plot_pareto_policy_termination_prob(env_name, num_steps, verbose=False):
     """
     make the plot comparing a pareto policy with a non-pareto one wrt its termination probability
     """
     # pareto
     pareto_mdp, pareto_policy = make_policy(env_name, is_pareto=True, verbose=verbose)
     pareto_state_dist = get_state_distribution(pareto_mdp, pareto_policy, num_steps=num_steps)
-    pareto_goal_probs = pareto_state_dist[:, GOAL]
-    pareto_lava_probs = pareto_state_dist[:, LAVA]
+    pareto_goal_probs = _accumulate_state_distribution(pareto_state_dist[:, GOAL])
+    pareto_lava_probs = _accumulate_state_distribution(pareto_state_dist[:, LAVA])  # (nsteps, )
 
     # non-pareto
     non_pareto_mdp, non_pareto_policy = make_policy(env_name, is_pareto=False, verbose=verbose) 
     non_pareto_state_dist = get_state_distribution(non_pareto_mdp, non_pareto_policy, num_steps=num_steps)
-    non_pareto_goal_probs = non_pareto_state_dist[:, GOAL]
-    non_pareto_lava_probs = non_pareto_state_dist[:, LAVA]
+    non_pareto_goal_probs = _accumulate_state_distribution(non_pareto_state_dist[:, GOAL])
+    non_pareto_lava_probs = _accumulate_state_distribution(non_pareto_state_dist[:, LAVA])
 
     # plot
     pareto_color = 'c'
@@ -160,7 +161,7 @@ def plot_pareto_policy_termination_prob(env_name, num_steps=NUM_STEPS, verbose=F
     plt.close()
 
 
-def sample_random_policy(mdp: TabularMarkovDecisionProcess) -> TabularPolicy:
+def sample_random_policy(env_name, mdp: TabularMarkovDecisionProcess) -> TabularPolicy:
     """
     sample a random policy from the MDP
     """
@@ -219,15 +220,15 @@ def sample_random_policy_through_random_reward(env_name: str, mdp: TabularMarkov
     return policy
 
 
-def get_success_and_failure_prob(mdp: TabularMarkovDecisionProcess, policy: TabularPolicy, num_steps: int=NUM_STEPS):
+def get_success_and_failure_prob(mdp: TabularMarkovDecisionProcess, policy: TabularPolicy, num_steps: int):
     """
     given an MDP and a policy, turn the policy into a two-point statistic: (goal_reaching_prob, obstacle_reaching_prob)
 
     note: this currently only supports the Russel/Norvig Gridworld
     """
     state_dist = get_state_distribution(mdp, policy, num_steps=num_steps)
-    goal_probs = state_dist[:, GOAL]
-    lava_probs = state_dist[:, LAVA]
+    goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
+    lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])
     
     return goal_probs, lava_probs
 
@@ -286,17 +287,10 @@ def random_policy_paretoness_plot(env_name, num_polices=5000, policy_sample_meth
     generate a bunch of randon policies, and plot each policy in a 2D grid as (prob_success, prob_fail)
     """
     # only need this for state, action list, transition matrix, initial state distribution
-    
     env_params = {
         'discount_rate': 0.95,
-        'slip_prob': 0.8,
-        'goal_reward': 1,
-        'step_cost': -0.04,
+        'slip_prob': 0.8,  # matters for the transition matrix
     }
-    if env_name == 'rn_grid':
-        env_params['lava_penalty'] = -1
-    elif env_name == 'puddle':
-        env_params['puddle_cost'] = -1
     pseudo_mdp = make_env(env_name, **env_params)
     
     # collect the data
@@ -305,7 +299,7 @@ def random_policy_paretoness_plot(env_name, num_polices=5000, policy_sample_meth
     prob_of_reaching_lava = np.zeros((num_polices, NUM_STEPS))
     for i in range(num_polices):
         policy = policy_sample_method(env_name, pseudo_mdp)
-        p_goals, p_lavas = get_success_and_failure_prob(pseudo_mdp, policy)
+        p_goals, p_lavas = get_success_and_failure_prob(pseudo_mdp, policy, num_steps=NUM_STEPS)
         prob_of_reaching_goals[i, :] = p_goals
         prob_of_reaching_lava[i, :] = p_lavas
         stats[i] = [p_goals[-1], p_lavas[-1]]  # last timestep prob
@@ -369,6 +363,21 @@ if __name__ == '__main__':
     
     print(f"Using environment: {args.env}")
     os.makedirs(f'results/{args.env}', exist_ok=True)
+    # environmental constant 
+    if args.env == 'rn_grid':
+        GOAL = 10
+        LAVA = 9
+        NUM_STEPS = 20
+    elif args.env == 'puddle':
+        pseudo_env = make_env('puddle')
+        GOAL = []
+        LAVA = []  # these are puddles
+        NUM_STEPS = 70
+        for loc, feature in pseudo_env.locFeatures.items():
+            if feature == 'g':
+                GOAL.append(pseudo_env.state_index[loc])
+            elif feature == 'p':
+                LAVA.append(pseudo_env.state_index[loc])
     
     if args.debug:
         debug()
@@ -379,4 +388,4 @@ if __name__ == '__main__':
             sample_method = sample_random_policy
         random_policy_paretoness_plot(args.env, num_polices=args.num_policies, policy_sample_method=sample_method)
     else:
-        plot_pareto_policy_termination_prob(args.env, verbose=args.verbose)
+        plot_pareto_policy_termination_prob(args.env, num_steps=NUM_STEPS, verbose=args.verbose)
