@@ -1,10 +1,22 @@
-import numpy as np
 from collections import defaultdict
 
+import numpy as np
+from matplotlib import pyplot as plt
+from msdm.core.distributions.dictdistribution import DeterministicDistribution, DictDistribution, \
+    UniformDistribution
+from msdm.core.problemclasses.mdp.quicktabularmdp import QuickTabularMDP
 
-def make_puddle_world(discount_rate=.99, custom_rewardf=None, *,
-                      step_cost=None, goal_reward=None, lava_penalty=None,
-                      grid=None, slip_prob=0., feature_groups=('s.', 'g', 'p'), term_features='g', verbose=False,
+
+def make_puddle_world(discount_rate=.99, 
+                        slip_prob=0., 
+                        step_cost=0, 
+                        puddle_cost=-0.3,
+                        goal_reward=1, 
+                        custom_rewardf=None,
+                        grid=None, 
+                        feature_groups=('s.', 'g', 'p'), 
+                        term_features='g', 
+                        verbose=False,
                       ):
     """
     Note: 
@@ -21,7 +33,7 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *,
     :param lava_penalty: float
     :param grid: str | None - if you want to specify a puddle architecture other than the default (see below - grid_string)
     use this. Otherwise, leave as None to use the default.
-    :param slip_prob: float
+    :param slip_prob: the probability of not slipping
     :param feature_groups: str - controls what features are grouped together for the purposes of the LP assigning rewards. 
     A list means each state will be a part of that feature group. 'all' means each state is its own feature. 'columns' assigns
     features along columns of the world. 
@@ -34,20 +46,14 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *,
     # error checking inputs
     assert 0 < discount_rate < 1, "discount_rate must be between 0 and 1"
     assert 0 <= slip_prob <= 1, "slip_prob must be between 0 and 1"
-    if len(str(slip_prob).split('.')[-1]) > 4: 
-        raise ValueError(f'code rounds slip prob. to 4 dec.; change the code')
-    nonslip_prob = round(1 - slip_prob, 4)
     if custom_rewardf is None:
         assert step_cost is not None, 'must specify step_cost if custom_rewardf is None'
         assert goal_reward is not None, 'must specify goal_reward if custom_rewardf is None'
-        assert lava_penalty is not None, 'must specify lava_penalty if custom_rewardf is None'
+        assert puddle_cost is not None, 'must specify puddle cost if custom_rewardf is None'
     else:
-        print("Custom reward specified; ignoring step_cost, goal_reward, and lava_penalty arguments")
+        print("Custom reward specified; ignoring step_cost, goal_reward, and puddle cost arguments")
 
-    from msdm.core.distributions.dictdistribution import DeterministicDistribution, DictDistribution, \
-        UniformDistribution
-    from msdm.core.problemclasses.mdp.quicktabularmdp import QuickTabularMDP
-    # default world. p=puddle (lava)
+    # default world
     grid_string = grid or """
         ...p......
         ...p.p.g.p
@@ -81,7 +87,8 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *,
 
     actions = ((1, 0), (-1, 0), (0, 1), (0, -1))
 
-    def initial_state_dist(): return UniformDistribution([s for s, f in loc_to_feature.items() if f == 's'])
+    def initial_state_dist(): 
+        return UniformDistribution([s for s, f in loc_to_feature.items() if f == 's'])
 
     def is_terminal(s):
         if term_features is not None:
@@ -102,11 +109,11 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *,
             return custom_rewardf[sind_nw[ns]]
 
         if loc_to_feature.get(ns, '') in '.s': 
-            return -0.04
+            return step_cost
         elif loc_to_feature.get(ns, '') == 'g': 
-            return 1.0
-        elif loc_to_feature.get(ns, '') in 'xp': 
-            return -1.0
+            return goal_reward
+        elif loc_to_feature.get(ns, '') in 'p': 
+            return puddle_cost
         else: 
             raise ValueError(f'Invalid rf or state for:\n{ns}')
 
@@ -130,19 +137,19 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *,
     def next_state_dist(s, a):
         if is_terminal(s): 
             return DeterministicDistribution(s)
-        if nonslip_prob == 1.: 
+        if slip_prob == 1: 
             return DeterministicDistribution(apply_op(s, a))
 
         ns_dist = defaultdict(float)  # next state distribution
         int_ns = apply_op(s, a)
-        ns_dist[int_ns] += nonslip_prob
+        ns_dist[int_ns] += slip_prob
 
         slip_op1 = (0, -1) if is_x_move(a) else (-1, 0)  # 'slipping'
         slip_op2 = (0, 1) if is_x_move(a) else (1, 0)
         slip_ns1 = apply_op(s, slip_op1)
         slip_ns2 = apply_op(s, slip_op2)
-        ns_dist[slip_ns1] += round((1 - nonslip_prob) / 2, 4)
-        ns_dist[slip_ns2] += round((1 - nonslip_prob) / 2, 4)
+        ns_dist[slip_ns1] += (1 - slip_prob) / 2
+        ns_dist[slip_ns2] += (1 - slip_prob) / 2
         return DictDistribution(ns_dist)
 
     def is_goal(s):
@@ -170,7 +177,6 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *,
     gw.state_ind = sind_nw
     gw.rstate_ind = rstate_ind
     gw.initial_states = gw.initial = initial_states
-    gw.nonslip_prob, gw.slip_prob = nonslip_prob, round(1 - nonslip_prob, 4)
 
     if term_features is not None:
         gw.absorbing_states = gw.tsx = set(gw.state_index[k] for k, i in loc_to_feature.items() if i in term_features)
@@ -209,10 +215,6 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *,
 
     def plot(all_elements=False, plot_walls=True, plot_initial_states=True, plot_absorbing_states=True,
              feature_colors=None):
-        from matplotlib import pyplot as plt
-
-        # from optre.generalizing.env_stuff.mygwplotter import GridWorldPlotter
-
         if all_elements: plot_initial_states, plot_absorbing_states = True, True
         featurecolors = feature_colors or {'s.': 'green', 'g': 'red', 'p': 'blue'}
         _, ax = plt.subplots(1, 1, figsize=(gw.width, gw.height))
@@ -564,7 +566,7 @@ class GridWorldPlotter:
                                                    ),
                                             color=arrow_color))
             else:
-                print('is not list')
+                # is a dict
                 for a, v in av.items():
                     dx, dy = a
                     # mag = abs(v) / absvmax
