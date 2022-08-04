@@ -260,6 +260,7 @@ class Logger(object):
     DEFAULT = None  # A logger with no output files. (See right below class definition)
                     # So that you can still log to the terminal without setting up any output files
     CURRENT = None  # Current logger being used by the free functions above
+    ALTERNATIVE = None  # Another logger that can be used, that is saved
 
     def __init__(self, dir, output_formats, comm=None):
         self.name2val = defaultdict(float)  # values this iteration
@@ -367,6 +368,21 @@ def reset():
         Logger.CURRENT.close()
         Logger.CURRENT = Logger.DEFAULT
         log('Reset logger')
+
+@contextmanager
+def switch_logger(dir=None, format_strs=None, comm=None, log_suffix=''):
+    main_logger = Logger.CURRENT
+    if Logger.ALTERNATIVE is None:
+        # set a new Logger.CURRENT
+        configure(dir=dir, format_strs=format_strs, comm=comm, log_suffix=log_suffix)
+    else:
+        Logger.CURRENT = Logger.ALTERNATIVE
+    try:
+        yield
+    finally:
+        # switch back
+        Logger.ALTERNATIVE = Logger.CURRENT
+        Logger.CURRENT = main_logger
 
 @contextmanager
 def scoped_configure(dir=None, format_strs=None, comm=None):

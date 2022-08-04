@@ -297,20 +297,19 @@ def train_agent_batch_with_evaluation(
                     logger=logger,
                 )
                 # log results 
-                make_eval_logger(outdir)
-                for i in range(eval_n_episodes):
-                    # log each eval episode's stats on a new line
-                    kvlogger.logkv('steps', t)
-                    kvlogger.logkv('eval_episode_idx', i)
-                    for stat, stat_val in eval_results.items():
-                        val = stat_val[i]
-                        if 'tier' in stat:
-                            for i_tier in range(len(val)):
-                                kvlogger.logkv(f'eval_tier_{i_tier}_hitting_count', val[i_tier])
-                        else:
-                            kvlogger.logkv(stat, val)
-                    kvlogger.dumpkvs()
-                make_train_logger(outdir)
+                with kvlogger.switch_logger(outdir, format_strs=['csv'], log_suffix='_eval'):
+                    for i in range(eval_n_episodes):
+                        # log each eval episode's stats on a new line
+                        kvlogger.logkv('steps', t)
+                        kvlogger.logkv('eval_episode_idx', i)
+                        for stat, stat_val in eval_results.items():
+                            val = stat_val[i]
+                            if 'tier' in stat:
+                                for i_tier in range(len(val)):
+                                    kvlogger.logkv(f'eval_tier_{i_tier}_hitting_count', val[i_tier])
+                            else:
+                                kvlogger.logkv(stat, val)
+                        kvlogger.dumpkvs()
 
             if t >= steps:
                 break
@@ -337,10 +336,6 @@ def train_agent_batch_with_evaluation(
 
 def make_train_logger(log_dir):
     kvlogger.configure(dir=log_dir, format_strs=['csv', 'stdout'])
-
-
-def make_eval_logger(log_dir):
-    kvlogger.configure(dir=log_dir, format_strs=['csv'], log_suffix='_eval')
 
 
 def main():
