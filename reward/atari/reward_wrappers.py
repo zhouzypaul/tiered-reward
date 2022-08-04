@@ -51,19 +51,19 @@ class BreakoutTierReward(TierRewardWrapper):
         Red - 7 points         Orange - 7 points        Yellow - 4 points
         Green - 4 points       Aqua - 1 point           Blue - 1 point
     We modify the reward to be:
-        tiers are defined exactly as the three tiers as in the original reward
+        tiers are defined exactly as the 4 tiers as in the original reward
         but the reward value changes:
-        Aqua, Blue - 1 point
-        Yellow, Green - H + delta
-        Red, Orange - H^2 + delta
+            default - 0 points
+            Aqua, Blue - 1 point
+            Yellow, Green - H + delta
+            Red, Orange - H^2 + delta
     """
-    num_total_bricks = 18 * 6 * 2
-
     def _get_tier(self, reward):
         r_to_tier = {
-            1: 0,
-            4: 1,
-            7: 2,
+            0: 0,
+            1: 1,
+            4: 2,
+            7: 3,
         }
         return r_to_tier[reward]
 
@@ -75,9 +75,10 @@ class BreakoutTierReward(TierRewardWrapper):
 
         tier = self._get_tier(reward)
         tier_to_reward = {
-            0: 1,
-            1: self.h + self.delta,
-            2: self.h**2 + self.delta,
+            0: 0,
+            1: 1,
+            2: self.h + self.delta,
+            3: self.h**2 + self.delta,
         }
         return tier_to_reward[tier]
     
@@ -142,7 +143,7 @@ class FreewayTierReward(TierRewardWrapper):
 def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
     env_id = (env.spec.id).lower()
     if 'breakout' in env_id:
-        assert num_tiers == 3
+        assert num_tiers == 4
         env = BreakoutTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
     elif 'freeway' in env_id:
         env = FreewayTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
