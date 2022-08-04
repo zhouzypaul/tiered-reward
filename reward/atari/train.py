@@ -454,7 +454,7 @@ def main():
         eval_n_episodes=args.eval_n_runs,
         eval_interval=args.eval_interval,
         outdir=args.outdir,
-        log_interval=1,  # TODO
+        log_interval=1000,
     )
 
 
