@@ -140,13 +140,65 @@ class FreewayTierReward(TierRewardWrapper):
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
 
+class PongTierReward(TierRewardWrapper):
+    """
+    in Pong, you win when you get to 21 points first
+    
+    The original reward is:
+        -1 for every ball you lose, +1 for every ball you win
+    We modify the reward to be:
+        tiers are defined in terms of the difference between the agent's score and the opponents
+        the worst tier is non-positive difference, which gets 0 reward
+        the other tiers get increasing reward
+    """
+    score_max = 21
+
+    @cached_property
+    def points_per_tier(self):
+        return self.score_max / (self.num_tiers-1)
+    
+    def _get_tier(self, score_diff):
+        if score_diff <= 0:
+            tier = 0
+        else:
+            tier = int(score_diff / self.points_per_tier)
+            try:
+                assert 0 <= tier < self.num_tiers-1
+            except AssertionError:
+                tier = self.num_tiers-2
+    
+    def reward(self, reward, info):
+        info['original_reward'] = float(reward)
+
+        if self.keep_original_reward:
+            return reward
+
+        tier = self._get_tier(info['labels']['player_score'] - info['labels']['enemy_score'])
+        if tier == 0:
+            reward = 0
+        else:
+            reward = self.h ** (tier-1) + self.delta
+        return reward
+    
+    def log_tier_hitting_count(self, info):
+        tier = self._get_tier(info['labels']['player_score'] - info['labels']['enemy_score'])
+        self.tiers_hitting_count[tier] += 1
+        info['tiers_hitting_count'] = self.tiers_hitting_count
+
+
 def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
     env_id = (env.spec.id).lower()
     if 'breakout' in env_id:
-        assert num_tiers == 4
+        try:
+            assert num_tiers == 4
+        except AssertionError:
+            num_tiers = 4
+            print(f'Warning: Breakout has 4 tiers, but you specified {num_tiers} tiers. MODIFYING IT TO BE 4 TIERS.')
         env = BreakoutTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
     elif 'freeway' in env_id:
         env = FreewayTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+    elif 'pong' in env_id:
+        env = PongTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
     else:
         raise NotImplementedError
     return env
