@@ -2,139 +2,7 @@ import numpy as np
 from collections import defaultdict
 
 
-# class MyGrid(QuickTabularMDP):
-#     def __init__(self, grid, slip_prob=0, discount_rate=.9, reward=None, feature_groups=None, goal_is_term=True,
-#                  reward_on_s=True):
-#         grid_string = grid or '''
-#                 ..g
-#                 ...
-#                 s..
-#             '''
-#         nonslip_prob = 1 - slip_prob
-#         grid = [list(r.strip()) for r in grid_string.split('\n') if len(r.strip())]
-#         loc_to_feature = {(y, len(grid) + ~x): c for x, row in enumerate(grid) for y, c in enumerate(row)}
-#         actions = ((1, 0), (-1, 0), (0, 1), (0, -1))
-#         walls = set(k for k, i in loc_to_feature.items() if i == '#')
-#         states = loc_to_feature.keys()
-#         nonwalls = sorted(states - walls)
-#         sind_nw = {k: i for i, k in enumerate(nonwalls)}
-#         rstate_ind = {sind_nw[k]: k for k in sind_nw.keys()}
-#         features = sorted(loc_to_feature.values())
-#         walls = set(k for k, i in loc_to_feature.items() if i == '#')
-#         initial_states = set(k for k, i in loc_to_feature.items() if i == 's')
-#         sind_all = {k: i for i, k in enumerate(sorted(loc_to_feature.keys()))}
-#
-#         def initial_state_dist(): return UniformDistribution([s for s, f in loc_to_feature.items() if f == 's'])
-#
-#         def is_terminal(s):
-#             if goal_is_term: return loc_to_feature[s] == 'g'
-#             return False
-#
-#         def get_reward(s, a, ns):
-#             valid_state = reward_on_s * ns or s
-#             try: tuple(valid_state)
-#             except TypeError: valid_state = rstate_ind[valid_state]
-#             # our custom reward function
-#             if reward is not None: return reward[sind_nw[valid_state]]
-#             elif reward is not None:  # standard reward function
-#                 if loc_to_feature.get(valid_state, '') in '.s': return -0.04
-#                 elif loc_to_feature.get(valid_state, '') == 'g': return 1.0
-#                 elif loc_to_feature.get(valid_state, '') in 'xp': return -1.0
-#                 else: raise ValueError(f'Invalid state {valid_state}')
-#             raise Exception("Gridworld must either have the standard rf or a custom one")
-#
-#         def is_valid_loc(s): return s in loc_to_feature and loc_to_feature[s] != '#'
-#
-#         def is_x_move(a): return a[0] != 0
-#
-#         def apply_op(s, op):  # moves to next state if valid, otherwise stays in state
-#             ns = (s[0] + op[0], s[1] + op[1])
-#             return is_valid_loc(ns) * ns or s
-#
-#         def next_state_dist(s, a):
-#             if is_terminal(s): return DeterministicDistribution(s)
-#             if nonslip_prob == 1.: return DeterministicDistribution(apply_op(s, a))
-#
-#             ns_dist = defaultdict(float)  # next state distribution
-#             int_ns = apply_op(s, a)
-#             ns_dist[int_ns] += nonslip_prob
-#             slip_op1 = is_x_move(a) * (-1, 0) or (0, -1)
-#             slip_op2 = is_x_move(a) * (1, 0) or (0, 1)
-#             slip_ns1 = apply_op(s, slip_op1)
-#             slip_ns2 = apply_op(s, slip_op2)
-#             ns_dist[slip_ns1] += round((1 - nonslip_prob) / 2, 4)
-#             ns_dist[slip_ns2] += round((1 - nonslip_prob) / 2, 4)
-#             return DictDistribution(ns_dist)
-#
-#         super().__init__(discount_rate=discount_rate, actions=actions, reward=get_reward, initial_state_dist=initial_state_dist,
-#                          next_state_dist=next_state_dist, is_terminal=is_terminal, )
-#
-#         self.locFeatures = self.loc_to_feature = loc_to_feature
-#         feature_groups = feature_groups or ['s.', 'g', ]
-#         try: feature_groups.sort()
-#         except AttributeError: pass
-#         self.features = feature_groups
-#         height, width = len(grid), len(grid[0])
-#         self.height, self.width = height, width
-#         self.nonslip, self.slip = nonslip_prob, 1 - nonslip_prob
-#         self.wall_states = self.walls = walls
-#         self.nonwalls = nonwalls
-#         self.sindall = self.state_ind_all = sind_all
-#         self.state_ind = sind_nw
-#         self.rstate_ind = rstate_ind
-#         self.feature_set = features
-#         self.initial_states = self.initial = initial_states
-#         self.absorbing_states = self.tsx = set(k for k, i in loc_to_feature.items() if i == 'g')
-#
-#         self.ff = self.make_feat_mat()
-#         for i, k in enumerate(self.action_list):
-#             if atti[k] != i: raise ValueError(f'action index mismatch at {k}: {atti[k]}, {i}')
-#         self.atti = atti
-#         self.aitt = aitt
-#
-#     def is_goal(self, s): return self.loc_to_feature[s] == 'g'
-#
-#     def make_feat_mat(self):
-#         if self.features is None:
-#             fm = np.eye(len(self.nonwalls))
-#         elif 'columns' in self.features:
-#             nfeats = self.width
-#             fm = np.zeros((nfeats + 1, len(self.nonwalls)))
-#             gstateind = self.state_ind[self.absorbing_states.pop()]
-#             for i in range(nfeats):
-#                 fm[i, :] = [int(s[0] == i and self.state_ind[s] != gstateind) for s in self.nonwalls]
-#             fm[-1, gstateind] = 1
-#         elif 'custom' in self.features: raise NotImplementedError
-#         else:
-#             fm = np.array(
-#                     [[1 if self.loc_to_feature[s] in f else 0 for s in self.nonwalls] for f in self.features if
-#                      f != '#'],
-#                     dtype=np.uint8)
-#
-#         ffm = fm.copy().sum(0)
-#         if not (fm == 1).all(): raise ValueError(
-#                 f'F matrix rows must sum to 1, received {fm} which sums {ffm}')
-#         if fm.shape[1] != len(self.nonwalls): raise ValueError(
-#                 f'F matrix must have {len(self.nonwalls)} columns, not {fm}')
-#         return fm
-#
-#     def plot(self, all_elements=False, plot_walls=True, plot_initial_states=True, plot_absorbing_states=True,
-#              feature_colors=None):
-#         from matplotlib import pyplot as plt
-#         from optre.generalizing.env_stuff.mygwplotter import GridWorldPlotter
-#         if all_elements: plot_initial_states, plot_absorbing_states = True, True
-#         featurecolors = feature_colors or {'g': 'yellow', 'x': 'red', }
-#         _, ax = plt.subplots(1, 1, figsize=(self.width, self.height))
-#         gwp = GridWorldPlotter(gw=gw, ax=ax)
-#         gwp.plot_features(featurecolors)
-#         if plot_walls: gwp.plot_walls()
-#         if plot_initial_states: gwp.plot_initial_states()
-#         if plot_absorbing_states: gwp.plot_absorbing_states()
-#         gwp.plot_outer_box()
-#         return gwp
-
-
-def make_puddle_world(discount_rate=.99, custom_rewardf=None, *, reward_on_s=True,
+def make_puddle_world(discount_rate=.99, custom_rewardf=None, *,
                       step_cost=None, goal_reward=None, lava_penalty=None,
                       grid=None, slip_prob=0., feature_groups=('s.', 'g', 'p'), term_features='g', verbose=False,
                       ):
@@ -148,7 +16,6 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *, reward_on_s=Tru
     :param discount_rate: float 
     :param custom_rewardf: None | function(s, a) -> float - if you want a specific reward function other than step_cost,
     goal_reward, or lava_penalty, use this
-    :param reward_on_s: bool - leave this be, depreciated
     :param step_cost: float
     :param goal_reward: float
     :param lava_penalty: float
@@ -165,9 +32,10 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *, reward_on_s=Tru
     """
 
     # error checking inputs
-    if 0 > discount_rate < 1: raise ValueError(f'discount_rate must be in [0, 1], got {discount_rate}')
-    if 0 > slip_prob < 1: raise ValueError(f'nonslip_prob must be in [0, 1], got {slip_prob}')
-    if len(str(slip_prob).split('.')[-1]) > 4: raise ValueError(f'code rounds slip prob. to 4 dec.; change the code')
+    assert 0 < discount_rate < 1, "discount_rate must be between 0 and 1"
+    assert 0 <= slip_prob <= 1, "slip_prob must be between 0 and 1"
+    if len(str(slip_prob).split('.')[-1]) > 4: 
+        raise ValueError(f'code rounds slip prob. to 4 dec.; change the code')
     nonslip_prob = round(1 - slip_prob, 4)
     if custom_rewardf is None:
         assert step_cost is not None, 'must specify step_cost if custom_rewardf is None'
@@ -193,8 +61,8 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *, reward_on_s=Tru
         ..........
     """
 
-    aitt = { 0: (-1, 0), 1: (0, -1), 2: (0, 1), 3: (1, 0), }
-    atti = { v: k for k, v in aitt.items() }
+    action_idx_to_tuple = { 0: (-1, 0), 1: (0, -1), 2: (0, 1), 3: (1, 0), }
+    action_tuple_to_idx = { v: k for k, v in action_idx_to_tuple.items() }
 
     grid = [list(r.strip()) for r in grid_string.split('\n') if len(r.strip())]
     loc_to_feature = { (y, len(grid) + ~x): c for x, row in enumerate(grid) for y, c in enumerate(row) }
@@ -223,30 +91,47 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *, reward_on_s=Tru
         return False
 
     def reward(s, a, ns):
-        valid_state = s if reward_on_s else ns
-        try: tuple(valid_state)
-        except TypeError: valid_state = rstate_ind[valid_state]; print('twas fucked up', s, 'into', valid_state)
+        try: 
+            tuple(ns)
+        except TypeError: 
+            ns = rstate_ind[ns]
+            print('twas fucked up', s, 'into', ns)
+
         # our custom reward function
-        if custom_rewardf is not None: return custom_rewardf[sind_nw[valid_state]]
+        if custom_rewardf is not None: 
+            return custom_rewardf[sind_nw[ns]]
 
-        if loc_to_feature.get(valid_state, '') in '.s': return -0.04
-        elif loc_to_feature.get(valid_state, '') == 'g': return 1.0
-        elif loc_to_feature.get(valid_state, '') in 'xp': return -1.0
+        if loc_to_feature.get(ns, '') in '.s': 
+            return -0.04
+        elif loc_to_feature.get(ns, '') == 'g': 
+            return 1.0
+        elif loc_to_feature.get(ns, '') in 'xp': 
+            return -1.0
+        else: 
+            raise ValueError(f'Invalid rf or state for:\n{ns}')
 
-        else: raise ValueError(f'Invalid rf or state for:\n{valid_state}')
+    def is_valid_loc(s): 
+        return s in loc_to_feature and loc_to_feature[s] != '#'
 
-    def is_valid_loc(s): return s in loc_to_feature and loc_to_feature[s] != '#'
-
-    def is_x_move(a): return a[0] != 0
+    def is_x_move(a): 
+        return a[0] != 0
 
     def apply_op(s, op):  # moves to next state if valid, otherwise stays in state
-        if isinstance(s, int): print(s, ' is int'); s = rstate_ind[s]
+        if isinstance(s, int): 
+            print(s, ' is int')
+            s = rstate_ind[s]
         ns = (s[0] + op[0], s[1] + op[1])
-        return ns if is_valid_loc(ns) else s
+
+        if is_valid_loc(ns):
+            return ns
+        else:
+            return s
 
     def next_state_dist(s, a):
-        if is_terminal(s): return DeterministicDistribution(s)
-        if nonslip_prob == 1.: return DeterministicDistribution(apply_op(s, a))
+        if is_terminal(s): 
+            return DeterministicDistribution(s)
+        if nonslip_prob == 1.: 
+            return DeterministicDistribution(apply_op(s, a))
 
         ns_dist = defaultdict(float)  # next state distribution
         int_ns = apply_op(s, a)
@@ -271,8 +156,10 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *, reward_on_s=Tru
 
     gw.locFeatures = gw.loc_to_feature = loc_to_feature
     feature_groups = feature_groups or ['s.', 'g', 'p']
-    try: feature_groups.sort()
-    except AttributeError: pass
+    try: 
+        feature_groups.sort()
+    except AttributeError: 
+        pass
     gw.features = feature_groups
     if verbose: print('feature groups are', gw.features)
 
@@ -290,10 +177,12 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *, reward_on_s=Tru
     else:
         gw.absorbing_states = gw.tsx = set()
 
-    def verify_fm(fm):
+    def verify_feature_matrix(fm):
         ffm = fm.copy().sum(0)
-        if not (ffm == 1).all(): raise ValueError(f'F matrix rows must sum to 1, received {fm} which sums {ffm}')
-        if fm.shape[1] != len(nonwalls): raise ValueError(f'F matrix must have {len(nonwalls)} columns, not {fm}')
+        if not (ffm == 1).all(): 
+            raise ValueError(f'Feature matrix rows must sum to 1, received {fm} which sums {ffm}')
+        if fm.shape[1] != len(nonwalls): 
+            raise ValueError(f'Feature matrix must have {len(nonwalls)} columns, not {fm}')
         return fm
 
     def get_feat_mat():
@@ -315,7 +204,7 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *, reward_on_s=Tru
                      f != '#'],
                     dtype=np.uint8)
 
-    gw.ff = verify_fm(get_feat_mat())
+    gw.ff = verify_feature_matrix(get_feat_mat())
     if verbose: print('final gw.ff:\n', gw.ff)
 
     def plot(all_elements=False, plot_walls=True, plot_initial_states=True, plot_absorbing_states=True,
@@ -338,10 +227,10 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *, reward_on_s=Tru
     gw.plot = plot
 
     for i, k in enumerate(gw.action_list):
-        if atti[k] != i: raise ValueError(f'action index mismatch at {k}: {atti[k]}, {i}')
+        if action_tuple_to_idx[k] != i: raise ValueError(f'action index mismatch at {k}: {action_tuple_to_idx[k]}, {i}')
 
-    gw.atti = atti
-    gw.aitt = aitt
+    gw.atti = action_tuple_to_idx
+    gw.aitt = action_idx_to_tuple
     gw.action_to_string = {
         (1, 0):  'right',
         (-1, 0): 'left',
@@ -350,6 +239,8 @@ def make_puddle_world(discount_rate=.99, custom_rewardf=None, *, reward_on_s=Tru
     }
 
     return gw
+
+
 
 #########  PLOTTING  ##############################################################################################
 import matplotlib.pyplot as plt
