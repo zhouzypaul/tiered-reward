@@ -74,7 +74,7 @@ def make_policy(env_name, is_pareto, verbose=False):
     }
     
     if env_name == 'rn_grid':
-        make_russell_norvig_grid(**env_params)
+        mdp = make_russell_norvig_grid(**env_params)
     elif env_name == 'puddle':
         mdp = make_puddle_world(**env_params)
     
@@ -311,7 +311,7 @@ if __name__ == '__main__':
     parser.add_argument('--random_policy_paretoness', '-r', action='store_true', default=False)
     parser.add_argument('--num_policies', '-n', type=int, default=5000)
     parser.add_argument('--sample_with_reward', '-s', action='store_true', default=False)
-    parser.add_argument('--env', type=str, default='rn', choices=['rn_grid', 'puddle',],
+    parser.add_argument('--env', type=str, default='rn_grid', choices=['rn_grid', 'puddle',],
                         help='which environment to use. rn: Russell/Norvig grid, puddle: puddle world')
     args = parser.parse_args()
     
