@@ -15,6 +15,7 @@ from reward.msdm_utils import get_ordered_state_action_list, state_distribution_
 
 
 # constants for the russell/norvig gridworld
+# TODO: this needs to change 
 GOAL = 10
 LAVA = 9
 NUM_STEPS = 20
@@ -52,6 +53,21 @@ def get_state_distribution(mdp: TabularMarkovDecisionProcess, policy: TabularPol
     return state_dist
 
 
+def make_env(env_name, **params):
+    """
+    make the environement
+    """
+    assert 'discount_rate' in params
+    assert 'slip_prob' in params
+
+    if env_name == 'russell_norvig':
+        return make_russell_norvig_grid(**params)
+    elif env_name == 'puddle':
+        return make_puddle_world(**params)
+    else:
+        raise ValueError(f'unknown environment {env_name}')
+
+
 def make_policy(env_name, is_pareto, verbose=False):
     """
     make a policy for the RN gridworld
@@ -61,24 +77,37 @@ def make_policy(env_name, is_pareto, verbose=False):
         is_pareto: whether the policy is pareto
     """
     gamma = 0.95
-    goal_reward = 1 if is_pareto else 1
-    lava_penalty = -1 if is_pareto else 1
-    step_cost = -0.04 if is_pareto else 0
-    if is_pareto:
-        assert lava_penalty < 1/(1-gamma) * step_cost < goal_reward
-    
     env_params = {
         'discount_rate': gamma,
-        'slip_prob':     0.8,
-        'goal_reward':   goal_reward,
-        'lava_penalty':  lava_penalty,
-        'step_cost':     step_cost,
+        'slip_prob': 0.8,
     }
-    
+
     if env_name == 'rn_grid':
-        mdp = make_russell_norvig_grid(**env_params)
+        goal_reward = 1 if is_pareto else 1
+        lava_penalty = -1 if is_pareto else 1
+        step_cost = -0.04 if is_pareto else 0
+        if is_pareto:
+            assert lava_penalty < 1/(1-gamma) * step_cost < goal_reward
+        env_params = {
+            **env_params,
+            'goal_reward': goal_reward,
+            'lava_penalty': lava_penalty,
+            'step_cost': step_cost,
+        }
+
     elif env_name == 'puddle':
-        mdp = make_puddle_world(**env_params)
+        goal_reward = 1 if is_pareto else -1
+        step_cost = 0 if is_pareto else 0
+        puddle_cost = -0.3 if is_pareto else 0.5
+        env_params = {
+            **env_params,
+            'goal_reward': goal_reward,
+            'step_cost': step_cost,
+            'puddle_cost': puddle_cost,
+        }
+
+    mdp = make_env(env_name, **env_params)
+
     
     vi = ValueIteration()
     result = vi.plan_on(mdp)
@@ -151,25 +180,37 @@ def sample_random_policy_through_random_reward(env_name: str, mdp: TabularMarkov
         mdp: not used, keeping it consistent for API 
     """
     gamma = 0.95
-    goal_reward = np.random.uniform(-1, 1)
-    lava_penalty = np.random.uniform(-1, goal_reward)
-    # sample step cost
-    upper = (1-gamma) * goal_reward
-    lower = (1-gamma) * lava_penalty
-    step_cost = np.random.uniform(lower, upper)
-    
     env_params = {
         'discount_rate': gamma,
         'slip_prob': 0.8,
-        'goal_reward': goal_reward,
-        'lava_penalty': lava_penalty,
-        'step_cost': step_cost,
     }
-    
+
     if env_name == 'rn_grid':
-        mdp = make_russell_norvig_grid(**env_params)
+        goal_reward = np.random.uniform(-1, 1)
+        lava_penalty = np.random.uniform(-1, goal_reward)
+        # sample step cost
+        upper = (1-gamma) * goal_reward
+        lower = (1-gamma) * lava_penalty
+        step_cost = np.random.uniform(lower, upper)
+        env_params = {
+            **env_params,
+            'goal_reward': goal_reward,
+            'lava_penalty': lava_penalty,
+            'step_cost': step_cost,
+        }
+    
     elif env_name == 'puddle':
-        mdp = make_puddle_world(**env_params)
+        goal_reward = np.random.uniform(-1, 1)
+        step_cost = np.random.uniform(-1, goal_reward)
+        puddle_cost = np.random.uniform(-1, step_cost)
+        env_params = {
+            **env_params,
+            'goal_reward': goal_reward,
+            'step_cost': step_cost,
+            'puddle_cost': puddle_cost,
+        }
+    
+    mdp = make_env(env_name, **env_params)
     
     vi = ValueIteration()
     result = vi.plan_on(mdp)
@@ -250,13 +291,13 @@ def random_policy_paretoness_plot(env_name, num_polices=5000, policy_sample_meth
         'discount_rate': 0.95,
         'slip_prob': 0.8,
         'goal_reward': 1,
-        'lava_penalty': -1,
         'step_cost': -0.04,
     }
-    if env_name == 'rn_grid': 
-        pseudo_mdp = make_russell_norvig_grid(**env_params) 
-    elif env_name == 'puddle': 
-        pseudo_mdp = make_puddle_world(**env_params)
+    if env_name == 'rn_grid':
+        env_params['lava_penalty'] = -1
+    elif env_name == 'puddle':
+        env_params['puddle_cost'] = -1
+    pseudo_mdp = make_env(env_name, **env_params)
     
     # collect the data
     stats = np.zeros((num_polices, 2))
