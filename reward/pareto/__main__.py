@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import numpy as np
 import seaborn as sns
@@ -89,23 +91,25 @@ def make_policy(env_name, is_pareto, verbose=False):
         else: 
             plot = mdp.plot(True)
             plot.pP(policy) # plots policy
-        plt.savefig(f'results/rn_grid_pareto_{is_pareto}.png')
+        save_path = f'results/{env_name}/policy_pareto_{is_pareto}.png'
+        plt.savefig(save_path)
+        print(f'policy saved to {save_path}')
         plt.close()
     return mdp, policy
 
 
-def plot_pareto_policy_termination_prob(env_name, num_steps=NUM_STEPS):
+def plot_pareto_policy_termination_prob(env_name, num_steps=NUM_STEPS, verbose=False):
     """
     make the plot comparing a pareto policy with a non-pareto one wrt its termination probability
     """
     # pareto
-    pareto_mdp, pareto_policy = make_policy(env_name, is_pareto=True, verbose=True)
+    pareto_mdp, pareto_policy = make_policy(env_name, is_pareto=True, verbose=verbose)
     pareto_state_dist = get_state_distribution(pareto_mdp, pareto_policy, num_steps=num_steps)
     pareto_goal_probs = pareto_state_dist[:, GOAL]
     pareto_lava_probs = pareto_state_dist[:, LAVA]
 
     # non-pareto
-    non_pareto_mdp, non_pareto_policy = make_policy(env_name, is_pareto=False, verbose=False) 
+    non_pareto_mdp, non_pareto_policy = make_policy(env_name, is_pareto=False, verbose=verbose) 
     non_pareto_state_dist = get_state_distribution(non_pareto_mdp, non_pareto_policy, num_steps=num_steps)
     non_pareto_goal_probs = non_pareto_state_dist[:, GOAL]
     non_pareto_lava_probs = non_pareto_state_dist[:, LAVA]
@@ -121,7 +125,7 @@ def plot_pareto_policy_termination_prob(env_name, num_steps=NUM_STEPS):
     plt.title('Probability of Reaching Goal/Lava')
     plt.xlabel('Time Step')
     plt.ylabel('Cumulative Probability')
-    save_path = 'results/pareto_prob.png'
+    save_path = f'results/{env_name}/pareto_prob.png'
     plt.savefig(save_path)
     print(f'Saved to {save_path}')
     plt.close()
@@ -280,7 +284,7 @@ def random_policy_paretoness_plot(env_name, num_polices=5000, policy_sample_meth
     grid.ax_joint.set_ylabel('Probability of Failure')
     grid.fig.subplots_adjust(right=0.95)
     # save
-    save_path = 'results/random_policy_paretoness.png'
+    save_path = f'results/{env_name}/random_policy_paretoness.png'
     plt.savefig(save_path)
     print(f'Saved to {save_path}')
     plt.close()
@@ -307,15 +311,23 @@ if __name__ == '__main__':
 
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--debug', action='store_true', default=False)
+    # env
+    parser.add_argument('--env', type=str, default='rn_grid', choices=['rn_grid', 'puddle',],
+                        help='which environment to use. rn: Russell/Norvig grid, puddle: puddle world')
+
+    # experiments
     parser.add_argument('--random_policy_paretoness', '-r', action='store_true', default=False)
     parser.add_argument('--num_policies', '-n', type=int, default=5000)
     parser.add_argument('--sample_with_reward', '-s', action='store_true', default=False)
-    parser.add_argument('--env', type=str, default='rn_grid', choices=['rn_grid', 'puddle',],
-                        help='which environment to use. rn: Russell/Norvig grid, puddle: puddle world')
+    
+    # debug
+    parser.add_argument("--verbose", "-v", action="store_true", default=False)
+    parser.add_argument('--debug', action='store_true', default=False)
+
     args = parser.parse_args()
     
     print(f"Using environment: {args.env}")
+    os.makedirs(f'results/{args.env}', exist_ok=True)
     
     if args.debug:
         debug()
@@ -326,4 +338,4 @@ if __name__ == '__main__':
             sample_method = sample_random_policy
         random_policy_paretoness_plot(args.env, num_polices=args.num_policies, policy_sample_method=sample_method)
     else:
-        plot_pareto_policy_termination_prob(args.env)
+        plot_pareto_policy_termination_prob(args.env, verbose=args.verbose)

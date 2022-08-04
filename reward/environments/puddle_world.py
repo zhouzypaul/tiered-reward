@@ -564,7 +564,7 @@ class GridWorldPlotter:
                                                    ),
                                             color=arrow_color))
             else:
-                print('is not list')
+                # is a dict
                 for a, v in av.items():
                     dx, dy = a
                     # mag = abs(v) / absvmax
