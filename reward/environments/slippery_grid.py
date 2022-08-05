@@ -168,8 +168,6 @@ def make_slippery_grid(discount_rate, success_prob, step_cost, goal_reward, lava
     gw = SlipperyGrid(
         tile_array=tile_array,
         feature_rewards={
-            's': step_cost,
-            '.': step_cost,
             'g': goal_reward,
             'x': lava_penalty,
         },
