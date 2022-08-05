@@ -138,11 +138,11 @@ class FreewayTierReward(TierRewardWrapper):
         if self.keep_original_reward:
             return reward
         
-        tier = self._get_tier(info['labels']['player_y'])
+        tier = self._get_tier(int(info['labels']['player_y']))
         return self._get_tier_reward(tier)
     
     def log_tier_hitting_count(self, info):
-        tier = self._get_tier(info['labels']['player_y'])
+        tier = self._get_tier(int(info['labels']['player_y']))
         self.tiers_hitting_count[tier] += 1
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
@@ -181,11 +181,11 @@ class PongTierReward(TierRewardWrapper):
         if self.keep_original_reward:
             return reward
 
-        tier = self._get_tier(info['labels']['player_score'] - info['labels']['enemy_score'])
+        tier = self._get_tier(int(info['labels']['player_score']) - int(info['labels']['enemy_score']))
         return self._get_tier_reward(tier)
     
     def log_tier_hitting_count(self, info):
-        tier = self._get_tier(info['labels']['player_score'] - info['labels']['enemy_score'])
+        tier = self._get_tier(int(info['labels']['player_score']) - int(info['labels']['enemy_score']))
         self.tiers_hitting_count[tier] += 1
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
