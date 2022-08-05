@@ -166,6 +166,7 @@ class PongTierReward(TierRewardWrapper):
                 assert 0 <= tier < self.num_tiers-1
             except AssertionError:
                 tier = self.num_tiers-2
+        return tier
     
     def reward(self, reward, info):
         info['original_reward'] = float(reward)
