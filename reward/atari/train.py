@@ -12,6 +12,7 @@ from pfrl.experiments.evaluator import save_agent
 from reward.atari.agent import make_agent
 from reward.atari.env import make_batch_env, make_env
 from reward.atari import logger as kvlogger
+from reward.utils import create_log_dir
 
 
 def safe_mean(xs):
@@ -432,8 +433,7 @@ def main():
     experiment_name = f"{args.env}-{args.num_tiers}-tiers"
     if args.original_reward:
         experiment_name += "-original-reward"
-    args.outdir = experiments.prepare_output_dir(args, args.outdir, exp_id=experiment_name, make_backup=False)
-    print("Output files are saved in {}".format(args.outdir))
+    args.outdir = create_log_dir(os.path.join(args.outdir, experiment_name), remove_existing=True, log_git=True)
 
     # agent
     sample_env = make_env(args.env, seed=0, num_tiers=args.num_tiers, max_frames=args.max_frames, test=False)

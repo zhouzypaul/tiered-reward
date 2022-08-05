@@ -64,7 +64,7 @@ class BaseTrial:
 
 
 
-def create_log_dir(dir_path, remove_existing=True):
+def create_log_dir(dir_path, remove_existing=True, log_git=True):
     """
     Prepare a directory for outputting training results.
     Then the following infomation is saved into the directory:
@@ -99,6 +99,12 @@ def create_log_dir(dir_path, remove_existing=True):
     with open(os.path.join(outdir, "start_time.txt"), "w") as f:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         f.write(timestamp)
+
+    # log git stuff
+    if log_git:
+        from pfrl.experiments.prepare_output_dir import is_under_git_control, save_git_information
+        if is_under_git_control():
+            save_git_information(outdir)
         
     return outdir
 
