@@ -187,6 +187,56 @@ class PongTierReward(TierRewardWrapper):
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
 
+class AsterixTierReward(TierRewardWrapper):
+    """
+    The original reward is:
+        OBJECT (for Asterix)	POINTS
+        nothing     0
+        Cauldron:	50
+        Helmet:	100
+        Shield:	200
+        Lamp:	300
+    we modify the reward to be:
+        tiers are defined exactly as the 5 tiers as in the original reward
+        but the reward value changes:
+        nothing     0
+        Cauldron    1
+        Helment     H + delta
+        Shield      H(H+delta) + delta = H^2 + (H+1)delta
+        Lamp        H^3 + (H^2+H+1)delta
+    """
+    def _get_tier(self, reward):
+        r_to_tier = {
+            0: 0,
+            50: 1,
+            100: 2,
+            200: 3,
+            300: 4,
+        }
+        return r_to_tier[reward]
+
+    def reward(self, reward, info):
+        info['original_reward'] = float(reward)
+
+        if self.keep_original_reward:
+            return reward
+
+        tier = self._get_tier(reward)
+        tier_to_reward = {
+            0: 0,
+            1: 1,
+            2: self.h + self.delta,
+            3: self.h**2 + (self.h+1)*self.delta,
+            4: self.h**3 + (self.h**2+self.h+1)*self.delta,
+        }
+        return tier_to_reward[tier]
+    
+    def log_tier_hitting_count(self, info):
+        tier = self._get_tier(info['original_reward'])
+        self.tiers_hitting_count[tier] += 1
+        info['tiers_hitting_count'] = self.tiers_hitting_count
+
+
 def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
     env_id = (env.spec.id).lower()
     if 'breakout' in env_id:
@@ -200,6 +250,13 @@ def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
         env = FreewayTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
     elif 'pong' in env_id:
         env = PongTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+    elif 'asterix' in env_id:
+        try:
+            assert num_tiers == 5
+        except AssertionError:
+            num_tiers = 5
+            print(f'Warning: Asterix has 5 tiers, but you specified {num_tiers} tiers. MODIFYING IT TO BE 5 TIERS.')
+        env = AsterixTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
     else:
         raise NotImplementedError
     return env
