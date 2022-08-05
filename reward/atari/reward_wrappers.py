@@ -199,6 +199,7 @@ class AsterixTierReward(TierRewardWrapper):
         Helmet:	100
         Shield:	200
         Lamp:	300
+        (through experimentatio there seems to be reward other than these)
     we modify the reward to be:
         tiers are defined exactly as the 5 tiers as in the original reward
         but the reward value changes:
@@ -209,14 +210,16 @@ class AsterixTierReward(TierRewardWrapper):
         Lamp        H^3 + (H^2+H+1)delta
     """
     def _get_tier(self, reward):
-        r_to_tier = {
-            0: 0,
-            50: 1,
-            100: 2,
-            200: 3,
-            300: 4,
-        }
-        return r_to_tier[reward]
+        if reward <= 0:
+            return 0
+        elif reward <= 50:
+            return 1
+        elif reward <= 100:
+            return 2
+        elif reward <= 200:
+            return 3
+        else:
+            return 4
 
     def reward(self, reward, info):
         info['original_reward'] = float(reward)
