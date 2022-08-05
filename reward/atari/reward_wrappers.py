@@ -33,6 +33,23 @@ class TierRewardWrapper(gym.Wrapper):
         reward = self.reward(reward, info)
         self.log_tier_hitting_count(info)
         return obs, reward, done, info
+    
+    def _get_tier_reward(self, tier):
+        """
+        what's the reward for the i-the tier
+        tier          reward
+        0             0
+        1             H^0
+        2             H^1 + delta
+        k             H^(k-1) + (H^k-2 +...+ H^0)) * delta
+        """
+        if tier == 0:
+            return 0
+        elif tier == 1:
+            return 1
+        else:
+            return self.h ** (tier-1) + self.delta * (self.h **(tier-1) - 1) / (self.h - 1)
+        
 
     def reward(self, reward, info):
         raise NotImplementedError
@@ -74,13 +91,7 @@ class BreakoutTierReward(TierRewardWrapper):
             return reward
 
         tier = self._get_tier(reward)
-        tier_to_reward = {
-            0: 0,
-            1: 1,
-            2: self.h + self.delta,
-            3: self.h**2 + self.delta,
-        }
-        return tier_to_reward[tier]
+        return self._get_tier_reward(tier)
     
     def log_tier_hitting_count(self, info):
         tier = self._get_tier(info['original_reward'])
@@ -128,11 +139,7 @@ class FreewayTierReward(TierRewardWrapper):
             return reward
         
         tier = self._get_tier(info['labels']['player_y'])
-        if tier == 0:
-            reward = 0
-        else:
-            reward = self.h ** (tier-1) + self.delta
-        return reward
+        return self._get_tier_reward(tier)
     
     def log_tier_hitting_count(self, info):
         tier = self._get_tier(info['labels']['player_y'])
@@ -175,11 +182,7 @@ class PongTierReward(TierRewardWrapper):
             return reward
 
         tier = self._get_tier(info['labels']['player_score'] - info['labels']['enemy_score'])
-        if tier == 0:
-            reward = 0
-        else:
-            reward = self.h ** (tier-1) + self.delta
-        return reward
+        return self._get_tier_reward(tier)
     
     def log_tier_hitting_count(self, info):
         tier = self._get_tier(info['labels']['player_score'] - info['labels']['enemy_score'])
@@ -222,14 +225,7 @@ class AsterixTierReward(TierRewardWrapper):
             return reward
 
         tier = self._get_tier(reward)
-        tier_to_reward = {
-            0: 0,
-            1: 1,
-            2: self.h + self.delta,
-            3: self.h**2 + (self.h+1)*self.delta,
-            4: self.h**3 + (self.h**2+self.h+1)*self.delta,
-        }
-        return tier_to_reward[tier]
+        return self._get_tier_reward(tier)
     
     def log_tier_hitting_count(self, info):
         tier = self._get_tier(info['original_reward'])
@@ -246,10 +242,13 @@ def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
             num_tiers = 4
             print(f'Warning: Breakout has 4 tiers, but you specified {num_tiers} tiers. MODIFYING IT TO BE 4 TIERS.')
         env = BreakoutTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+
     elif 'freeway' in env_id:
         env = FreewayTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+
     elif 'pong' in env_id:
         env = PongTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+
     elif 'asterix' in env_id:
         try:
             assert num_tiers == 5
@@ -257,6 +256,8 @@ def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
             num_tiers = 5
             print(f'Warning: Asterix has 5 tiers, but you specified {num_tiers} tiers. MODIFYING IT TO BE 5 TIERS.')
         env = AsterixTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+
     else:
         raise NotImplementedError
+        
     return env
