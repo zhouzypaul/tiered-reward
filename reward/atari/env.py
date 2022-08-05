@@ -17,7 +17,11 @@ def make_env(env_id, seed, max_frames, num_tiers=15, original_reward=False, test
     is_atari = hasattr(gym.envs, 'atari') and isinstance(
         env.unwrapped, gym.envs.atari.atari_env.AtariEnv)
     assert is_atari
-    env = AtariARIWrapper(env)
+    try:
+        env = AtariARIWrapper(env)
+    except AssertionError:
+        # env is not supported by AtariARIWrapper
+        pass
 
     env = wrap_tier_rewards(env, num_tiers=num_tiers, gamma=0.99, keep_original_reward=original_reward)
 
