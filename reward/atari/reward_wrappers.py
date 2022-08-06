@@ -154,28 +154,11 @@ class PongTierReward(TierRewardWrapper):
     The original reward is:
         -1 for every ball you lose, +1 for every ball you win
     We modify the reward to be:
-        tiers are defined in terms of the difference between the agent's score and the opponents
-        the worst tier is non-positive difference, which gets 0 reward
-        the other tiers get increasing reward
+        tiers are defined in terms of the agent's score
     """
     score_max = 21
-
-    @cached_property
-    def points_per_tier(self):
-        return self.score_max / (self.num_tiers-1)
-    
-    def _get_tier(self, score_diff):
-        if score_diff <= 0:
-            tier = 0
-        elif score_diff >= self.score_max:
-            tier = self.num_tiers-1
-        else:
-            tier = int(score_diff / self.points_per_tier)
-            try:
-                assert 0 <= tier < self.num_tiers-1
-            except AssertionError:
-                tier = self.num_tiers-2
-        return tier
+    def _get_tier(self, score):
+        return score
     
     def reward(self, reward, info):
         info['original_reward'] = float(reward)
@@ -183,11 +166,11 @@ class PongTierReward(TierRewardWrapper):
         if self.keep_original_reward:
             return reward
 
-        tier = self._get_tier(int(info['labels']['player_score']) - int(info['labels']['enemy_score']))
+        tier = self._get_tier(int(info['labels']['player_score']))
         return self._get_tier_reward(tier)
     
     def log_tier_hitting_count(self, info):
-        tier = self._get_tier(int(info['labels']['player_score']) - int(info['labels']['enemy_score']))
+        tier = self._get_tier(int(info['labels']['player_score']))
         self.tiers_hitting_count[tier] += 1
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
