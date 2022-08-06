@@ -167,6 +167,8 @@ class PongTierReward(TierRewardWrapper):
     def _get_tier(self, score_diff):
         if score_diff <= 0:
             tier = 0
+        elif score_diff >= self.score_max:
+            tier = self.num_tiers-1
         else:
             tier = int(score_diff / self.points_per_tier)
             try:
