@@ -221,6 +221,54 @@ class AsterixTierReward(TierRewardWrapper):
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
 
+class BattleZoneTierReward(TierRewardWrapper):
+    """
+    the original reward seems to be:
+        +1 when you hit an enemy, and 0 otherwise
+        The scoring system, on the other hand, is:
+            TARGET          POINTS
+            Tank            1,000
+            Fighter         2,000
+            Supertank       3,000
+            Saucer          5,000
+            Bonus Tank      At 50,000 and 100,000 points
+    we modify the reward to be:
+        tiers are dependent on the cumulative enemies you hit (aka the current score)
+    """
+    max_num_hit = 200
+
+    @cached_property
+    def _num_hit_per_tier(self):
+        return self.max_num_hit / self.num_tiers
+
+    def _get_tier(self, score, reward):
+        if reward == 0:
+            # if you didn't hit anyting this steps, not getting a reward
+            return 0
+        else:
+            # you hit something, now the reward you get depends on how many things you hit
+            # each basic tank you hit gets score 1000, other enemies give more score 
+            num_hit = int(score / 1000)
+            tier = int(num_hit / self._num_hit_per_tier) + 1
+            if tier > self.num_tiers-1:
+                tier = self.num_tiers-1
+            return tier
+    
+    def reward(self, reward, info):
+        info['original_reward'] = float(reward)
+
+        if self.keep_original_reward:
+            return reward
+
+        tier = self._get_tier(int(info['labels']['score']), reward)
+        return self._get_tier_reward(tier)
+    
+    def log_tier_hitting_count(self, info):
+        tier = self._get_tier(int(info['labels']['score']), info['original_reward'])
+        self.tiers_hitting_count[tier] += 1
+        info['tiers_hitting_count'] = self.tiers_hitting_count
+
+
 def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
     env_id = (env.spec.id).lower()
     if 'breakout' in env_id:
@@ -244,6 +292,9 @@ def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
             num_tiers = 5
             print(f'Warning: Asterix has 5 tiers, but you specified {num_tiers} tiers. MODIFYING IT TO BE 5 TIERS.')
         env = AsterixTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+    
+    elif 'battlezone' in env_id:
+        env = BattleZoneTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
 
     else:
         raise NotImplementedError
