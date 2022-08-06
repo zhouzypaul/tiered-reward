@@ -433,7 +433,7 @@ def main():
     experiment_name = f"{args.env}-{args.num_tiers}-tiers"
     if args.original_reward:
         experiment_name += "-original-reward"
-    args.outdir = create_log_dir(os.path.join(args.outdir, experiment_name), remove_existing=True, log_git=True)
+    args.outdir = create_log_dir(os.path.join(args.outdir, experiment_name, f"seed_{args.seed}"), remove_existing=True, log_git=True)
 
     # agent
     sample_env = make_env(args.env, seed=0, num_tiers=args.num_tiers, max_frames=args.max_frames, test=False)
