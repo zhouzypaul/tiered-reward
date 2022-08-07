@@ -156,7 +156,6 @@ class PongTierReward(TierRewardWrapper):
     We modify the reward to be:
         tiers are defined in terms of the agent's score
     """
-    score_max = 21
     def _get_tier(self, score):
         return score
     
@@ -173,6 +172,26 @@ class PongTierReward(TierRewardWrapper):
         tier = self._get_tier(int(info['labels']['player_score']))
         self.tiers_hitting_count[tier] += 1
         info['tiers_hitting_count'] = self.tiers_hitting_count
+
+
+class BoxingTierReward(PongTierReward):
+    """
+    in Boxing, you want to get as many points as possible in 2 minutes
+    
+    the original reward is:
+        -1 for every hit you take, and +1 for every hit you make
+    we modify the reward to be:
+        tiers are defined purely in ters of the agent's score
+    """
+    points_per_tier = 4
+
+    def _get_tier(self, score):
+        if score == 0:
+            return 0
+        tier = score // self.points_per_tier + 1
+        if tier > self.num_tiers - 1:
+            tier = self.num_tiers - 1
+        return tier
 
 
 class AsterixTierReward(TierRewardWrapper):
@@ -289,6 +308,14 @@ def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
             num_tiers = 22
             print(f'Warning: Pong has 22 tiers, but you specified {num_tiers} tiers. MODIFYING IT TO BE 22 TIERS.')
         env = PongTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+    
+    elif 'boxing' in env_id:
+        try:
+            assert num_tiers == 15
+        except AssertionError:
+            num_tiers = 15
+            print(f'Warning: Boxing has 15 tiers, but you specified {num_tiers} tiers. MODIFYING IT TO BE 15 TIERS.')
+        env = BoxingTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
 
     elif 'asterix' in env_id:
         try:
