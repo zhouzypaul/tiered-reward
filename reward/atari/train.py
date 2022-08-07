@@ -1,7 +1,9 @@
 import os
+import sys
 import time
 import argparse
 import logging
+import traceback
 from collections import deque
 
 import numpy as np
@@ -325,12 +327,13 @@ def train_agent_batch_with_evaluation(
     except (Exception, KeyboardInterrupt):
         # Save the current model before being killed
         save_agent(agent, t, outdir, logger, suffix="_except")
-        # env.close()
+        env.close()
         # if evaluator:
         #     evaluator.env.close()
         train_logger.close()
         eval_logger.close()
-        raise
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
     else:
         # Save the final model
         save_agent(agent, t, outdir, logger, suffix="_finish")
