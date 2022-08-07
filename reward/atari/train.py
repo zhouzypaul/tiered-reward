@@ -430,7 +430,7 @@ def main():
 
     # logging
     import logging
-    logging.basicConfig(level=args.log_level)
+    logging.basicConfig(level=args.log_level, stream=sys.stdout)
 
     # saving dir
     experiment_name = f"{args.env}-{args.num_tiers}-tiers"
