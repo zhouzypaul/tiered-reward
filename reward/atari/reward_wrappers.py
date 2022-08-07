@@ -283,6 +283,11 @@ def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
         env = FreewayTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
 
     elif 'pong' in env_id:
+        try:
+            assert num_tiers == 22
+        except AssertionError:
+            num_tiers = 22
+            print(f'Warning: Pong has 22 tiers, but you specified {num_tiers} tiers. MODIFYING IT TO BE 22 TIERS.')
         env = PongTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
 
     elif 'asterix' in env_id:
