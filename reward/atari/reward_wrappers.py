@@ -264,18 +264,15 @@ class BattleZoneTierReward(TierRewardWrapper):
     def _num_hit_per_tier(self):
         return self.max_num_hit / self.num_tiers
 
-    def _get_tier(self, score, reward):
-        if reward == 0:
-            # if you didn't hit anyting this steps, not getting a reward
+    def _get_tier(self, score):
+        if score == 0:
             return 0
-        else:
-            # you hit something, now the reward you get depends on how many things you hit
-            # each basic tank you hit gets score 1000, other enemies give more score 
-            num_hit = int(score / 1000)
-            tier = int(num_hit / self._num_hit_per_tier) + 1
-            if tier > self.num_tiers-1:
-                tier = self.num_tiers-1
-            return tier
+        # each basic tank you hit gets score 1000, other enemies give more score 
+        num_hit = int(score / 1000)
+        tier = int(num_hit / self._num_hit_per_tier) + 1
+        if tier > self.num_tiers-1:
+            tier = self.num_tiers-1
+        return tier
     
     def reward(self, reward, info):
         info['original_reward'] = float(reward)
@@ -283,11 +280,11 @@ class BattleZoneTierReward(TierRewardWrapper):
         if self.keep_original_reward:
             return reward
 
-        tier = self._get_tier(int(info['labels']['score']), reward)
+        tier = self._get_tier(int(info['labels']['score']))
         return self._get_tier_reward(tier)
     
     def log_tier_hitting_count(self, info):
-        tier = self._get_tier(int(info['labels']['score']), info['original_reward'])
+        tier = self._get_tier(int(info['labels']['score']))
         self.tiers_hitting_count[tier] += 1
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
