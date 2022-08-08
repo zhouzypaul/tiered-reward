@@ -132,14 +132,14 @@ class OneDimChain(GridWorld):
     def reward(self, s, a, ns) -> float:
         if self.custom_rewards is None:
             # use default rewards
-            if self.is_terminal(s):
+            if self.is_terminal(ns):
                 return self._featureRewards['g']
-            f = self._locFeatures.get(s, "")
+            f = self._locFeatures.get(ns, "")
             return self._featureRewards.get(f, self.step_cost)
         else:
             # use custom rewards
-            idx_s = self.state_index[s]
-            return self.custom_rewards[idx_s]
+            idx_ns = self.state_index[ns]
+            return self.custom_rewards[idx_ns]
     
     @property
     def reward_vector(self):

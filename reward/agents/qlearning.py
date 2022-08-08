@@ -10,10 +10,11 @@ class TimeAtGoalEventListener(TDLearningEventListener):
     def __init__(self):
         self.time_at_goal = np.inf
     def end_of_timestep(self, local_vars):
-        if local_vars['mdp'].is_terminal(local_vars['s']):
+        if local_vars['mdp'].is_terminal(local_vars['s']) and local_vars['i_step'] < self.time_at_goal:
             self.time_at_goal = local_vars['i_step']
     def end_of_episode(self, local_vars):
-        pass
+        if local_vars['mdp'].is_terminal(local_vars['s']) and local_vars['i_step'] < self.time_at_goal:
+            self.time_at_goal = local_vars['i_step']
     def results(self):
         return self.time_at_goal
     
@@ -28,14 +29,15 @@ class QLearning(MSDMQLearning):
     def __init__(
         self, 
         num_steps: int,
+        rand_choose: float = 0.05,
         seed: int = 0,
         event_listener_class: TDLearningEventListener = TimeAtGoalEventListener,
     ):
         super().__init__(
             episodes=None, 
             step_size=1, 
-            rand_choose=0, 
-            initial_q=0, 
+            rand_choose=rand_choose, 
+            initial_q=0., 
             seed=seed, 
             event_listener_class=event_listener_class,
         )
