@@ -113,7 +113,7 @@ def plot_different_reward_comparison(base_dir, num_tiers):
     )
     plt.xlabel('Tier')
     plt.ylabel('Visitation Count')
-    plt.title(f"{os.path.basename(base_dir)}")
+    plt.title(f"{os.path.basename(base_dir)}: Visitation of Trained Agent")
     save_path = os.path.join(base_dir, 'compare_visitation.png')
     plt.savefig(save_path)
     print('saved to', save_path)
