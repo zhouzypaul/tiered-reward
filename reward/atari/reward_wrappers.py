@@ -68,21 +68,25 @@ class BreakoutTierReward(TierRewardWrapper):
         Red - 7 points         Orange - 7 points        Yellow - 4 points
         Green - 4 points       Aqua - 1 point           Blue - 1 point
     We modify the reward to be:
-        tiers are defined exactly as the 4 tiers as in the original reward
-        but the reward value changes:
-            default - 0 points
-            Aqua, Blue - 1 point
-            Yellow, Green - H + delta
-            Red, Orange - H^2 + delta
+        tiers are defined in terms of the number of bricks hit
+        the lowest tier has 0 point, each tier would increase the reward by *H* times + delta
     """
-    def _get_tier(self, reward):
-        r_to_tier = {
-            0: 0,
-            1: 1,
-            4: 2,
-            7: 3,
-        }
-        return r_to_tier[reward]
+    num_total_bricks = 18 * 6 * 2
+
+    @cached_property
+    def bricks_per_tier(self):
+        return self.num_total_bricks / (self.num_tiers-1)
+
+    def _get_tier(self, block_hit_count):
+        if block_hit_count == self.num_total_bricks:
+            tier = self.num_tiers - 1
+        else:
+            tier = int(block_hit_count / self.bricks_per_tier)
+            try:
+                assert 0 <= tier < self.num_tiers - 1
+            except AssertionError:
+                tier = self.num_tiers - 2  # numerical error
+        return tier
 
     def reward(self, reward, info):
         info['original_reward'] = float(reward)
@@ -90,11 +94,11 @@ class BreakoutTierReward(TierRewardWrapper):
         if self.keep_original_reward:
             return reward
 
-        tier = self._get_tier(reward)
+        tier = self._get_tier(info['labels']['blocks_hit_count'])
         return self._get_tier_reward(tier)
     
     def log_tier_hitting_count(self, info):
-        tier = self._get_tier(info['original_reward'])
+        tier = self._get_tier(info['labels']['blocks_hit_count'])
         self.tiers_hitting_count[tier] += 1
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
@@ -291,11 +295,6 @@ class BattleZoneTierReward(TierRewardWrapper):
 def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
     env_id = (env.spec.id).lower()
     if 'breakout' in env_id:
-        try:
-            assert num_tiers == 4
-        except AssertionError:
-            num_tiers = 4
-            print(f'Warning: Breakout has 4 tiers, but you specified {num_tiers} tiers. MODIFYING IT TO BE 4 TIERS.')
         env = BreakoutTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
 
     elif 'freeway' in env_id:
