@@ -400,7 +400,7 @@ def main():
 
     # hyperparams
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--final-exploration-frames", type=int, default=10**6)
+    parser.add_argument("--final-exploration-frames", type=int, default=10**7)
     parser.add_argument("--final-epsilon", type=float, default=0.01)
     parser.add_argument("--eval-epsilon", type=float, default=0.001)
     parser.add_argument("--noisy-net-sigma", type=float, default=None)
