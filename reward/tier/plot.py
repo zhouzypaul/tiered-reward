@@ -38,11 +38,10 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
     """
     # find all the csv
     env_name = os.path.basename(results_dir).split('-')[0]
-    dirname = os.path.dirname(results_dir)
 
     data = []
     for tier in tiers_to_compare:
-        saving_dir = os.path.join(dirname, f'{env_name}-{tier}-tier')
+        saving_dir = os.path.join(results_dir, f'{tier}-tier')
         csv_path = os.path.join(saving_dir, 'progress.csv')
         assert os.path.exists(csv_path), csv_path
         df = pd.read_csv(csv_path)
@@ -68,7 +67,7 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
     plt.title(f'Learning Time: {env_name}')
     plt.xlabel('Tier')
     plt.ylabel('Steps Till First Reaching Goal')
-    save_path = os.path.join(dirname, 'learning_time.png')
+    save_path = os.path.join(results_dir, 'learning_time.png')
     plt.savefig(save_path)
     print(f'saved to {save_path}')
     plt.close()
@@ -83,7 +82,7 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
     plt.title(f'Number of Goals Hit: {env_name}')
     plt.xlabel('Tier')
     plt.ylabel('Number of Goals Hit During Learning')
-    save_path = os.path.join(dirname, 'num_goals_hit.png')
+    save_path = os.path.join(results_dir, 'num_goals_hit.png')
     plt.savefig(save_path)
     print(f'saved to {save_path}')
     plt.close()
@@ -95,9 +94,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--load", "-l", type=str, required=True, help="path to results dir")
     parser.add_argument("--plot_hitting_time", "-p", action="store_true", help="plot hitting time")
+    parser.add_argument("--tiers", "-t", nargs="+", type=int, help="tiers to compare")
     args = parser.parse_args()
 
     if args.plot_hitting_time:
-        compare_goal_hitting_stat_with_different_tiers(args.load, ['3', '5', '7', '9', '11'])
+        compare_goal_hitting_stat_with_different_tiers(args.load, args.tiers)
     else:
         plot_q_learning_results(args.load)
