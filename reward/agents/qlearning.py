@@ -1,8 +1,8 @@
-from concurrent.futures import ProcessPoolExecutor
-
 import numpy as np
+from pathos.pools import ProcessPool
 from msdm.algorithms.tdlearning import TDLearningEventListener, epsilon_softmax_sample
 from msdm.algorithms import QLearning as MSDMQLearning
+from msdm.core.algorithmclasses import Result
 
 
 class TimeAtGoalEventListener(TDLearningEventListener):
@@ -17,6 +17,32 @@ class TimeAtGoalEventListener(TDLearningEventListener):
             self.time_at_goal = local_vars['i_step']
     def results(self):
         return self.time_at_goal
+
+
+class EpisodicRewardEventListener(TDLearningEventListener):
+    def __init__(self):
+        self.episode_rewards = {}
+        self.curr_ep_rewards = 0
+        self.log_freq = 100
+    def end_of_timestep(self, local_vars):
+        self.curr_ep_rewards += local_vars['r']
+        if local_vars['i_step'] % self.log_freq == 0:
+            self.episode_rewards[local_vars['i_step']] = self.curr_ep_rewards
+    def end_of_episode(self, local_vars):
+        self.curr_ep_rewards = 0
+    def results(self):
+        return self.episode_rewards
+
+
+class SeedListener(TDLearningEventListener):
+    def __init__(self):
+        self.seed = None
+    def end_of_timestep(self, local_vars):
+        pass
+    def end_of_episode(self, local_vars):
+        self.seed = local_vars['self'].seed
+    def results(self):
+        return self.seed
     
 
 class QLearning(MSDMQLearning):
@@ -31,7 +57,6 @@ class QLearning(MSDMQLearning):
         num_steps: int,
         rand_choose: float = 0.05,
         seed: int = 0,
-        event_listener_class: TDLearningEventListener = TimeAtGoalEventListener,
     ):
         super().__init__(
             episodes=None, 
@@ -39,9 +64,13 @@ class QLearning(MSDMQLearning):
             rand_choose=rand_choose, 
             initial_q=0., 
             seed=seed, 
-            event_listener_class=event_listener_class,
         )
         self.num_steps = num_steps
+        self.event_listeners = [
+            EpisodicRewardEventListener(),
+            TimeAtGoalEventListener(),
+            SeedListener(),
+        ]
 
     # def _check_q_convergence(self, mdp, q):
     #     """
@@ -54,9 +83,8 @@ class QLearning(MSDMQLearning):
     #             next_states = mdp.next_state_dist(s, a).support
     #             for ns in next_states:
     #                 r = mdp.reward(s, a, ns)
-    #                 # TODO
     
-    def _training(self, mdp, rng, event_listener):
+    def _training(self, mdp, rng, event_listeners):
         q = self._initial_q_table(mdp)
         # initial state
         s = mdp.initial_state_dist().sample(rng=rng)
@@ -69,13 +97,27 @@ class QLearning(MSDMQLearning):
             # update
             q[s][a] += self.step_size*(r + mdp.discount_rate*max(q.get(ns, {0: 0}).values()) - q[s][a])
             # end of timestep
-            event_listener.end_of_timestep(locals())
+            for listener in event_listeners:
+                listener.end_of_timestep(locals())
             s = ns
             # end of episode
             if mdp.is_terminal(s):
-                event_listener.end_of_episode(locals())
+                for listener in event_listeners:
+                    listener.end_of_episode(locals())
                 s = mdp.initial_state_dist().sample(rng=rng)
         return q
+
+    def train_on(self, mdp):
+        rng = self._init_random_number_generator()
+        q = self._training(mdp, rng, self.event_listeners)
+        listener_results = {
+            listener.__class__.__name__: listener.results() for listener in self.event_listeners
+        }
+        return Result(
+            q_values=q,
+            policy=self._create_policy(mdp, q),
+            **listener_results,
+        )
 
 
 
@@ -99,33 +141,20 @@ def run_multiprocessing_q_learning(env, num_seeds=10, num_learning_steps=2000):
     agents = [
         QLearning(
             num_steps=num_learning_steps,
+            rand_choose=0.05,
             seed=seeds[i],
         )
         for i in range(num_seeds)
     ]
 
-    with ProcessPoolExecutor(num_seeds) as executor:
-        futures = []
-        for i in range(num_seeds):
-            future = executor.submit(
-                run_q_learning,
-                env,
-                agents[i],
-            )
-            futures.append(future)
-        
-        # wait till all jobs is done
-        while not all([f.done() for f in futures]):
-            pass
-        # check for exceptions
-        for f in futures:
-            if f.exception():
-                raise f.exception()
-        print("all qlearning jobs done")
+    pool = ProcessPool(nodes=num_seeds)
+    results = pool.amap(
+        run_q_learning,
+        [env]*num_seeds,
+        [agents[i] for i in range(num_seeds)],
+    )
+    while not results.ready():
+        pass
+    results = results.get()
 
-        # collect results
-        results = []
-        for f in futures:
-            results.append(f.result())
-    
-    return results 
+    return results
