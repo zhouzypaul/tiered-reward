@@ -5,7 +5,7 @@ import numpy as np
 
 from reward.environments import make_one_dim_chain, make_russell_norvig_grid, make_simple_grid
 from reward.agents.qlearning import run_multiprocessing_q_learning, run_q_learning, QLearning
-from reward.tier.reward_functions import make_tier_reward
+from reward.tier.reward_functions import make_tier_reward, potential_based_shaping_reward
 from reward.utils import create_log_dir
 from reward import kvlogger
 
@@ -83,15 +83,19 @@ if __name__ == "__main__":
             success_rate=0.8,
             custom_rewards=tier_r,
         )
+        pbs_env = potential_based_shaping_reward(env)
     else:
         raise NotImplementedError
     
     results = train_on_env(env, num_steps=args.steps, seed=args.seed, verbose=args.verbose)
-    print([res.TimeAtGoal for res in results])
+    print('original reward')
     print([res.NumGoalsHit for res in results])
     tiered_results = train_on_env(tier_env, num_steps=args.steps, seed=args.seed, verbose=args.verbose)
-    print([res.TimeAtGoal for res in tiered_results])
+    print('tiered reward')
     print([res.NumGoalsHit for res in tiered_results])
+    pbs_results = train_on_env(pbs_env, num_steps=args.steps, seed=args.seed, verbose=args.verbose)
+    print('potential-based shaping reward')
+    print([res.NumGoalsHit for res in pbs_results])
 
     # log results
     def log_results(result, reward_type):
@@ -109,3 +113,4 @@ if __name__ == "__main__":
     kvlogger.configure(saving_dir, format_strs=['csv'], log_suffix='')
     log_results(results, 'original')
     log_results(tiered_results, 'tiered')
+    log_results(pbs_results, 'potential based shaping')

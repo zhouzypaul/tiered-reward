@@ -1,6 +1,9 @@
 import math
+from copy import deepcopy
 
 import numpy as np
+from msdm.algorithms import ValueIteration
+from msdm.core.problemclasses.mdp import TabularMarkovDecisionProcess
 
 
 def _get_tier_reward(tier, gamma, delta):
@@ -38,6 +41,27 @@ def make_tier_reward(num_states, num_tiers, gamma=0.95, delta=0.1):
                 break
             r[idx] = _get_tier_reward(i, gamma, delta)
     return r
+
+
+def potential_based_shaping_reward(env: TabularMarkovDecisionProcess):
+    """
+    take in a TabularMDP, and output the potential based shaped reward
+    NOTE: this wrapper should only be used for Q Learning, 
+          don't use the wrapper for anything else, because it only overwrites the reward
+          function, the reward matrix is off, and others may be too.
+    """
+    vi = ValueIteration()
+    res = vi.plan_on(env)
+    values = res.V
+    original_reward_func = deepcopy(env.reward)
+
+    def shaped_reward(s, a, ns):
+        shaping = values[ns] * env.discount_rate - values[s]
+        return shaping + original_reward_func(s, a, ns)
+    
+    pbs_env = deepcopy(env)
+    pbs_env.reward = shaped_reward
+    return pbs_env
 
 
 if __name__ == "__main__":
