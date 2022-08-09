@@ -10,8 +10,7 @@ class TimeAtGoal(TDLearningEventListener):
     def __init__(self):
         self.time_at_goal = np.inf
     def end_of_timestep(self, local_vars):
-        if local_vars['mdp'].is_terminal(local_vars['s']) and local_vars['i_step'] < self.time_at_goal:
-            self.time_at_goal = local_vars['i_step']
+        pass
     def end_of_episode(self, local_vars):
         if local_vars['mdp'].is_terminal(local_vars['s']) and local_vars['i_step'] < self.time_at_goal:
             self.time_at_goal = local_vars['i_step']
@@ -63,18 +62,20 @@ class QLearning(MSDMQLearning):
     except that:
         1. this agent trains for a fixed nubmer of steps instead of episodes
         2. fully greedy, and learning rate of 1
+        3. optimistically initialize the Q values to be be a very large number
     """
     def __init__(
         self, 
         num_steps: int,
-        rand_choose: float = 0.05,
+        rand_choose: float = 0,
+        initial_q: float = 1e10,
         seed: int = 0,
     ):
         super().__init__(
             episodes=None, 
             step_size=1, 
             rand_choose=rand_choose, 
-            initial_q=0., 
+            initial_q=initial_q,
             seed=seed, 
         )
         self.num_steps = num_steps
@@ -143,7 +144,7 @@ def run_q_learning(env, agent):
     return res
 
 
-def run_multiprocessing_q_learning(env, num_seeds=10, num_learning_steps=2000):
+def run_multiprocessing_q_learning(env, rand_choose, initial_q, num_seeds=10, num_learning_steps=2000):
     """
     speed up run_q_learning with multiprocessing
     each process runs a different seed
@@ -154,7 +155,8 @@ def run_multiprocessing_q_learning(env, num_seeds=10, num_learning_steps=2000):
     agents = [
         QLearning(
             num_steps=num_learning_steps,
-            rand_choose=0.05,
+            rand_choose=rand_choose,
+            initial_q=initial_q,
             seed=seeds[i],
         )
         for i in range(num_seeds)

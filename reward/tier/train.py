@@ -11,20 +11,23 @@ from reward.utils import create_log_dir
 from reward import kvlogger
 
 
-def train_on_env(env, num_steps, seed, multiprocessing=True, verbose=False):
+def train_on_env(env, num_steps, seed, num_seeds, multiprocessing=True, verbose=False):
     """
     train on one environment, with one specific reward function
     """
     if multiprocessing:
         results = run_multiprocessing_q_learning(
             env, 
-            num_seeds=10,
+            rand_choose=0,
+            initial_q=1e10,
+            num_seeds=num_seeds,
             num_learning_steps=num_steps,
         )
     else:
         agent = QLearning(
             num_steps=num_steps,
-            rand_choose=0.05,
+            rand_choose=0,
+            initial_q=1e10,
             seed=seed,
         )
         result = run_q_learning(env, agent)
@@ -47,6 +50,7 @@ if __name__ == "__main__":
     parser.add_argument("--steps", type=int, default=100_000)
     parser.add_argument("--tiers", "-t", type=int, nargs="+", default=[5], help="number of tiers to use for reward")
     parser.add_argument("--seed", "-s", type=int, default=0, help="random seed")
+    parser.add_argument("--num_seeds", type=int, default=10, help="number of seeds to use for multiprocessing")
 
     # hyperparams
     parser.add_argument("--gamma", "-g", type=float, default=0.90, help="discount rate")
@@ -67,7 +71,7 @@ if __name__ == "__main__":
 
         # make env
         if args.env == 'chain':
-            num_chain_states = 25
+            num_chain_states = 9
             env = make_one_dim_chain(
                 num_states=num_chain_states,
                 discount_rate=args.gamma,
@@ -90,13 +94,13 @@ if __name__ == "__main__":
         else:
             raise NotImplementedError
         
-        results = train_on_env(env, num_steps=args.steps, seed=args.seed, verbose=args.verbose)
+        results = train_on_env(env, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
         print('original reward')
         print([res.NumGoalsHit for res in results])
-        tiered_results = train_on_env(tier_env, num_steps=args.steps, seed=args.seed, verbose=args.verbose)
+        tiered_results = train_on_env(tier_env, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
         print('tiered reward')
         print([res.NumGoalsHit for res in tiered_results])
-        pbs_results = train_on_env(pbs_env, num_steps=args.steps, seed=args.seed, verbose=args.verbose)
+        pbs_results = train_on_env(pbs_env, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
         print('potential-based shaping reward')
         print([res.NumGoalsHit for res in pbs_results])
 
