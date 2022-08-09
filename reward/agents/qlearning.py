@@ -109,7 +109,7 @@ class QLearning(MSDMQLearning):
             ns = mdp.next_state_dist(s, a).sample(rng=rng)
             r = mdp.reward(s, a, ns)
             # update
-            q[s][a] += self.step_size*(r + mdp.discount_rate*max(q.get(ns, {0: 0}).values()) - q[s][a])
+            q[s][a] += self.step_size*(r + mdp.discount_rate*max(q[ns].values()) - q[s][a])
             # end of timestep
             for listener in event_listeners:
                 listener.end_of_timestep(locals())
