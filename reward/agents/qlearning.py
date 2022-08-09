@@ -5,7 +5,7 @@ from msdm.algorithms import QLearning as MSDMQLearning
 from msdm.core.algorithmclasses import Result
 
 
-class TimeAtGoalEventListener(TDLearningEventListener):
+class TimeAtGoal(TDLearningEventListener):
     """which timestep did the agent get to the terminal state"""
     def __init__(self):
         self.time_at_goal = np.inf
@@ -19,7 +19,19 @@ class TimeAtGoalEventListener(TDLearningEventListener):
         return self.time_at_goal
 
 
-class EpisodicRewardEventListener(TDLearningEventListener):
+class NumGoalsHit(TDLearningEventListener):
+    """how many times did the agent hit the goal in total"""
+    def __init__(self):
+        self.num_goals_hit = 0
+    def end_of_timestep(self, local_vars):
+        pass
+    def end_of_episode(self, local_vars):
+        self.num_goals_hit += 1
+    def results(self):
+        return self.num_goals_hit
+
+
+class EpisodicReward(TDLearningEventListener):
     def __init__(self):
         self.episode_rewards = {}
         self.curr_ep_rewards = 0
@@ -34,7 +46,7 @@ class EpisodicRewardEventListener(TDLearningEventListener):
         return self.episode_rewards
 
 
-class SeedListener(TDLearningEventListener):
+class Seed(TDLearningEventListener):
     def __init__(self):
         self.seed = None
     def end_of_timestep(self, local_vars):
@@ -67,9 +79,10 @@ class QLearning(MSDMQLearning):
         )
         self.num_steps = num_steps
         self.event_listeners = [
-            EpisodicRewardEventListener(),
-            TimeAtGoalEventListener(),
-            SeedListener(),
+            EpisodicReward(),
+            TimeAtGoal(),
+            Seed(),
+            NumGoalsHit(),
         ]
 
     # def _check_q_convergence(self, mdp, q):

@@ -87,25 +87,25 @@ if __name__ == "__main__":
         raise NotImplementedError
     
     results = train_on_env(env, num_steps=args.steps, seed=args.seed, verbose=args.verbose)
+    print([res.TimeAtGoal for res in results])
+    print([res.NumGoalsHit for res in results])
     tiered_results = train_on_env(tier_env, num_steps=args.steps, seed=args.seed, verbose=args.verbose)
+    print([res.TimeAtGoal for res in tiered_results])
+    print([res.NumGoalsHit for res in tiered_results])
 
     # log results
+    def log_results(result, reward_type):
+        for res in result:
+            episodic_reward = res.EpisodicReward
+            for step, ep_reward in episodic_reward.items():
+                kvlogger.logkv('step', step)
+                kvlogger.logkv('episodic_reward', ep_reward)
+                kvlogger.logkv('reward_type', reward_type)
+                kvlogger.logkv('time_till_goal', res.TimeAtGoal)
+                kvlogger.logkv('num_goals_hit', res.NumGoalsHit)
+                kvlogger.logkv('seed', res.Seed)
+                kvlogger.dumpkvs()
+
     kvlogger.configure(saving_dir, format_strs=['csv'], log_suffix='')
-    for res in results:
-        episodic_reward = res.EpisodicRewardEventListener
-        for step, ep_reward in episodic_reward.items():
-            kvlogger.logkv('step', step)
-            kvlogger.logkv('episodic_reward', ep_reward)
-            kvlogger.logkv('reward_type', 'original')
-            kvlogger.logkv('time_till_goal', res.TimeAtGoalEventListener)
-            kvlogger.logkv('seed', res.SeedListener)
-            kvlogger.dumpkvs()
-    for res in tiered_results:
-        episodic_reward = res.EpisodicRewardEventListener
-        for step, ep_reward in episodic_reward.items():
-            kvlogger.logkv('step', step)
-            kvlogger.logkv('episodic_reward', ep_reward)
-            kvlogger.logkv('reward_type', 'tier')
-            kvlogger.logkv('time_till_goal', res.TimeAtGoalEventListener)
-            kvlogger.logkv('seed', res.SeedListener)
-            kvlogger.dumpkvs()
+    log_results(results, 'original')
+    log_results(tiered_results, 'tiered')
