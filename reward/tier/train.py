@@ -98,6 +98,7 @@ if __name__ == "__main__":
             kvlogger.logkv('episodic_reward', ep_reward)
             kvlogger.logkv('reward_type', 'original')
             kvlogger.logkv('time_till_goal', res.TimeAtGoalEventListener)
+            kvlogger.logkv('seed', res.SeedListener)
             kvlogger.dumpkvs()
     for res in tiered_results:
         episodic_reward = res.EpisodicRewardEventListener
@@ -106,4 +107,5 @@ if __name__ == "__main__":
             kvlogger.logkv('episodic_reward', ep_reward)
             kvlogger.logkv('reward_type', 'tier')
             kvlogger.logkv('time_till_goal', res.TimeAtGoalEventListener)
+            kvlogger.logkv('seed', res.SeedListener)
             kvlogger.dumpkvs()

@@ -6,6 +6,12 @@ plot termination probability for pareto rewards:
 python -m reward.pareto [--options]
 ```
 
+run q learning experiments on grid worlds and plot results:
+```python
+python -m reward.tier.train --env ENV_NAME -t TIER
+python -m reward.tier.plot -l LOAD_DIR
+```
+
 ### plotting the puddle environment
 ```python
 mdp = make_puddle_world()

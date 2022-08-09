@@ -1,0 +1,89 @@
+import os
+
+import pandas as pd
+import seaborn as sns
+from matplotlib import pyplot as plt
+
+
+def plot_q_learning_results(results_dir):
+    """
+    find the progress.csv inside results_dir and plot:
+        1. the episodic reward during learning
+        2. the time till goal
+    the plot is averaged across different random seeds
+    """
+    csv_path = os.path.join(results_dir, 'progress.csv')
+    assert os.path.exists(csv_path)
+
+    df = pd.read_csv(csv_path)
+    sns.lineplot(
+        data=df,
+        x='step',
+        y='episodic_reward',
+        hue='reward_type',
+    )
+    plt.title('Episodic Reward')
+    plt.xlabel('Step')
+    plt.ylabel('Episodic Reward')
+    save_path = os.path.join(results_dir, 'episodic_reward.png')
+    plt.savefig(save_path)
+    print(f'saved to {save_path}')
+    plt.close()
+
+
+def compare_goal_hitting_time_with_different_tiers(results_dir, tiers_to_compare):
+    """
+    make a plot with different tiers on the x axis and time to goal on the y
+    the progress.csv must be gathered from different directories, and only select the tier_reward data rows
+    """
+    # find all the csv
+    env_name = os.path.basename(results_dir).split('-')[0]
+    dirname = os.path.dirname(results_dir)
+
+    data = []
+    for tier in tiers_to_compare:
+        saving_dir = os.path.join(dirname, f'{env_name}-{tier}-tier')
+        csv_path = os.path.join(saving_dir, 'progress.csv')
+        assert os.path.exists(csv_path), csv_path
+        df = pd.read_csv(csv_path)
+        df['tier'] = int(tier)
+        df = df[['tier', 'time_till_goal', 'seed', 'reward_type']]
+        # separate each reward type
+        clean_df = []
+        for r_type, r_type_df in df.groupby('reward_type'):
+            r_type_df = r_type_df.copy().groupby('seed', as_index=False).mean()  # mean to remove repetitive data
+            r_type_df['reward_type'] = r_type
+            clean_df.append(r_type_df)
+        clean_df = pd.concat(clean_df, ignore_index=True)
+        data.append(clean_df)
+    data = pd.concat(data, ignore_index=True)
+
+    sns.lineplot(
+        data=data,
+        x='tier',
+        y='time_till_goal',
+        hue='reward_type',
+    )
+    plt.title(f'Learning Time: {env_name}')
+    plt.xlabel('Tier')
+    plt.ylabel('Steps Till First Reaching Goal')
+    save_path = os.path.join(dirname, 'learning_time.png')
+    plt.savefig(save_path)
+    print(f'saved to {save_path}')
+    plt.close()
+
+
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--load", "-l", type=str, required=True, help="path to results dir")
+    parser.add_argument("--plot_hitting_time", "-p", action="store_true", help="plot hitting time")
+    args = parser.parse_args()
+
+    if args.plot_hitting_time:
+        compare_goal_hitting_time_with_different_tiers(args.load, ['3', '5', '7', '9', '11'])
+    else:
+        plot_q_learning_results(args.load)
