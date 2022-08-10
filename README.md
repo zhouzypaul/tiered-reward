@@ -6,6 +6,11 @@ plot termination probability for pareto rewards:
 python -m reward.pareto [--options]
 ```
 
+compare different reward functions on Russell/Norvig grid:
+```python
+python -m reward.pareto.rn [--plot] [--print]
+```
+
 run q learning experiments on grid worlds and plot results:
 ```python
 python -m reward.tier.train --env ENV_NAME -t TIER
