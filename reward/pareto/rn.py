@@ -126,12 +126,13 @@ def plot_policy_termination_prob(env_name, num_steps, verbose=False):
     make three policies and compare their termination probabilities
     """
     colors = {
-        'R': 'r',
-        'G': 'g',
-        'B': 'b',
-        'up': 'c',
-        'left': 'm',
+        'R': '#eb3434',
+        'G': '#25a814',
+        'B': '#3440eb',
+        'up': '#7d34eb',
+        'left': 'c',
         'right': 'y',
+        'down': '#eb344f',
     }
     rewards = {
         'R': (-1, -0.1, 1),
@@ -146,40 +147,34 @@ def plot_policy_termination_prob(env_name, num_steps, verbose=False):
         goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
         lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])  # (nsteps,)
         # plot 
-        plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors[r_name], label=f"{r_name}", alpha=0.5)
-        plt.plot(range(1, num_steps+1), lava_probs-1, '-.', color=colors[r_name], alpha=0.5)
+        plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors[r_name], label=f"{r_name}")
+        plt.plot(range(1, num_steps+1), lava_probs-1, '-.', color=colors[r_name])
         plt.fill_between(range(1, num_steps+1), goal_probs, lava_probs-1, color=colors[r_name], alpha=0.5)
     
     plt.legend(loc='upper left')
     plt.title(f'Comparing Policies')
     plt.xlabel('Step')
-    plt.ylabel('Termination Probability')
+    plt.ylabel(r'$l_t - 1$                                      $p_t$')
+    plt.ylim((-1.05, 1.05))
     save_path = f'results/{env_name}/RGB_prob.png'
     plt.savefig(save_path)
     print(f'plot saved to {save_path}')
     plt.close()
 
-    r_red = rewards['R']
-    mdp, policy = make_policy(env_name, *r_red)
-    state_dist = get_state_distribution(mdp, policy, num_steps)
-    goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
-    lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])  # (nsteps,)
-    plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors['R'], label=f"R", alpha=0.5)
-    plt.plot(range(1, num_steps+1), lava_probs-1, '-.', color=colors['R'], alpha=0.5)
-    plt.fill_between(range(1, num_steps+1), goal_probs, lava_probs-1, color=colors['R'], alpha=0.5)
-    for direction in ['right', 'up', 'left']:
+    for direction in ['left', 'right']:
         policy = make_one_direction_policy(mdp, direction)
         state_dist = get_state_distribution(mdp, policy, num_steps)
         goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
         lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])  # (nsteps,)
-        plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors[direction], label=f"{direction}", alpha=0.5)
-        plt.plot(range(1, num_steps+1), lava_probs-1, '-.', color=colors[direction], alpha=0.5)
+        plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors[direction], label=f"{direction}")
+        plt.plot(range(1, num_steps+1), lava_probs-1, '-.', color=colors[direction])
         plt.fill_between(range(1, num_steps+1), goal_probs, lava_probs-1, color=colors[direction], alpha=0.5)
     
     plt.legend(loc='upper left')
     plt.title(f'Comparing Policies')
     plt.xlabel('Step')
-    plt.ylabel('Termination Probability')
+    plt.ylabel(r'$l_t - 1$                                      $p_t$')
+    plt.ylim((-1.05, 1.05))
     save_path = f'results/{env_name}/one_direction_policy_prob.png'
     plt.savefig(save_path)
     print(f'plot saved to {save_path}')
