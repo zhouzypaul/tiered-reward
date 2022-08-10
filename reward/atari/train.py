@@ -7,7 +7,6 @@ import traceback
 from collections import deque
 
 import numpy as np
-from pfrl import experiments
 from pfrl import utils
 from pfrl.experiments.evaluator import save_agent
 
@@ -400,8 +399,6 @@ def main():
 
     # hyperparams
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--final-exploration-frames", type=int, default=10**7)
-    parser.add_argument("--final-epsilon", type=float, default=0.01)
     parser.add_argument("--eval-epsilon", type=float, default=0.001)
     parser.add_argument("--noisy-net-sigma", type=float, default=None)
     parser.add_argument("--replay-start-size", type=int, default=5 * 10**4)

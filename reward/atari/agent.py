@@ -88,12 +88,7 @@ def make_agent(args, n_actions):
     else:
         rbuf = replay_buffers.ReplayBuffer(10**6, num_steps=args.n_step_return)
 
-    explorer = explorers.LinearDecayEpsilonGreedy(
-        1.0,
-        args.final_epsilon,
-        args.final_exploration_frames,
-        lambda: np.random.randint(n_actions),
-    )
+    explorer = explorers.Greedy()
 
     def phi(x):
         # Feature extractor
