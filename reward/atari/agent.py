@@ -5,9 +5,9 @@ import torch.optim as optim
 
 from pfrl import agents, explorers
 from pfrl import nn as pnn
-from pfrl.initializers import init_chainer_default
+from pfrl.initializers.lecun_normal import init_lecun_normal
 from pfrl.q_functions import DiscreteActionValueHead, DuelingDQN
-from pfrl import replay_buffers, utils
+from pfrl import replay_buffers
 
 
 class SingleSharedBias(nn.Module):
@@ -25,25 +25,44 @@ class SingleSharedBias(nn.Module):
         return x + self.bias.expand_as(x)
 
 
+@torch.no_grad()
+def optimistic_init_chainer_default(layer):
+    """
+    difference from pfrl:
+    initialize the bias term optimistically
+
+    Initializes the layer with the chainer default.
+    weights with LeCunNormal(scale=1.0) and zeros as biases
+    """
+    assert isinstance(layer, nn.Module)
+
+    if isinstance(layer, (nn.Linear, nn.Conv2d)):
+        init_lecun_normal(layer.weight)
+        if layer.bias is not None:
+            # layer may be initialized with bias=False
+            nn.init.constant_(layer.bias, 1e25)
+    return layer
+
+
 def parse_arch(arch, n_actions):
     if arch == "nature":
         return nn.Sequential(
             pnn.LargeAtariCNN(),
-            init_chainer_default(nn.Linear(512, n_actions)),
+            optimistic_init_chainer_default(nn.Linear(512, n_actions)),
             DiscreteActionValueHead(),
         )
     elif arch == "doubledqn":
         # raise NotImplementedError("Single shared bias not implemented yet")
         return nn.Sequential(
             pnn.LargeAtariCNN(),
-            init_chainer_default(nn.Linear(512, n_actions, bias=False)),
+            optimistic_init_chainer_default(nn.Linear(512, n_actions, bias=False)),
             SingleSharedBias(),
             DiscreteActionValueHead(),
         )
     elif arch == "nips":
         return nn.Sequential(
             pnn.SmallAtariCNN(),
-            init_chainer_default(nn.Linear(256, n_actions)),
+            optimistic_init_chainer_default(nn.Linear(256, n_actions)),
             DiscreteActionValueHead(),
         )
     elif arch == "dueling":
@@ -100,7 +119,7 @@ def make_agent(args, n_actions):
         opt,
         rbuf,
         gpu=args.gpu,
-        gamma=0.99,
+        gamma=0.90,
         explorer=explorer,
         replay_start_size=args.replay_start_size,
         target_update_interval=args.target_update_interval,
