@@ -50,7 +50,7 @@ def make_env(env_name, **params):
     """
     make the environement
     """
-    if env_name == 'russell_norvig':
+    if env_name == 'rn_grid':
         return make_russell_norvig_grid(**params)
     elif env_name == 'puddle':
         return make_puddle_world(**params)
