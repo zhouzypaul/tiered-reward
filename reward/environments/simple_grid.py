@@ -13,8 +13,7 @@ from msdm.core.distributions.dictdistribution import \
 class SimpleGrid(GridWorld):
     """
     create a 2-D square gridworld, where the agent starts at the bottom left state,
-    and the goal is at the top right state. This gridworld is deterministic, for
-    now. 
+    and the goal is at the top right state. 
 
     This environment seeks to extend the OneDimChain into 2D.
 

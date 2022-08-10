@@ -179,10 +179,37 @@ def make_slippery_grid(discount_rate, success_prob, step_cost, goal_reward, lava
     return gw
 
 
+def make_single_goal_square_grid(num_side_states, discount_rate, success_prob, step_cost, goal_reward, custom_reward=None):
+    """
+    make a square grid that's num_side_states * num_side_states
+    , where the agent starts at the bottom left corner, and the goa is top right corner
+    """
+    tile_array = [
+        '.' * (num_side_states-1) + 'g',
+    ] + [
+        '.' * num_side_states,
+    ] * (num_side_states-2) + [
+        's' + '.' * (num_side_states-1),
+    ]
+    gw = SlipperyGrid(
+        tile_array=tile_array,
+        feature_rewards={
+            'g': goal_reward,
+        },
+        absorbing_features=('g',),
+        step_cost=step_cost,
+        success_prob=success_prob,
+        discount_rate=discount_rate,
+        custom_rewards=custom_reward,
+    )
+    return gw
+
+
 if __name__ == "__main__":
     # for debugging
     import matplotlib.pyplot as plt
-    gw = make_slippery_grid(discount_rate=0.9, success_prob=0.5, step_cost=-0.1, goal_reward=1, lava_penalty=-1)
+    # gw = make_slippery_grid(discount_rate=0.9, success_prob=0.5, step_cost=-0.1, goal_reward=1, lava_penalty=-1)
+    gw = make_single_goal_square_grid(num_side_states=5, discount_rate=0.9, success_prob=0.5, step_cost=-0.1, goal_reward=1)
     gw.plot()
 
     from msdm.algorithms import ValueIteration

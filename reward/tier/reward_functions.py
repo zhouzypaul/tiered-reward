@@ -24,7 +24,7 @@ def _get_tier_reward(tier, gamma, delta):
         return h ** (tier-1) + delta * (h **(tier-1) - 1) / (h - 1)
 
 
-def make_tier_reward(num_states, num_tiers, gamma=0.95, delta=0.1):
+def make_chain_tier_reward(num_states, num_tiers, gamma=0.95, delta=0.1):
     """
     return a numpy array of length num_states
     NOTE: the goal has to be the single state that's the highest tier
@@ -41,6 +41,45 @@ def make_tier_reward(num_states, num_tiers, gamma=0.95, delta=0.1):
                 break
             r[idx] = _get_tier_reward(i, gamma, delta)
     return r
+
+
+def make_distance_based_tier_reward(env, num_tiers, gamma, delta):
+    """
+    given a tabular MDP, return a reward function that is tiered
+    the tiers depend on the L1 distance to the goal state
+
+    the goal is always its own tier -- the highest tier
+    the rest of the tiers are spread out evenly according to distance metric
+
+    NOTE: this assumes there is only a single goal state
+    """
+    # find the distances of every state to the goal 
+    def get_l1_distance(a, b):
+        """
+        L1 distance of two msdm states
+        a, b: both are frozendict({'x': x, 'y': y})
+        """
+        return abs(a['x'] - b['x']) + abs(a['y'] - b['y'])
+    assert len(env.absorbing_states) == 1, "Only one goal state is supported"
+    goal_state = env.absorbing_states[0]  # assume only one goal
+    idx_goal = env.state_index[goal_state]
+    state_to_distance = {s: get_l1_distance(s, goal_state) for s in env.state_list if s != goal_state}
+    distances = np.array(list(state_to_distance.values()))
+    bined_distance = np.digitize(distances, np.linspace(max(distances), 0, num_tiers-1))  # indices of the bins to which each value in input array belongs
+    if num_tiers == 2:
+        # a small hack to prevent there bing two bins
+        bined_distance = np.where(bined_distance >= num_tiers-1, num_tiers-2, bined_distance)  # if the value is greater than the highest bin, put it in the highest bin
+    state_to_bin_idx = {s: bined_distance[i] for i, s in enumerate(state_to_distance.keys())}
+
+    # build the tiered reward
+    tier_r = np.zeros(len(env.state_list))
+    for s, si in env.state_index.items():
+        if si == idx_goal:
+            tier_r[si] = _get_tier_reward(num_tiers-1, gamma, delta)
+        else:
+            assert state_to_bin_idx[s] < num_tiers - 1
+            tier_r[si] = _get_tier_reward(state_to_bin_idx[s], gamma, delta)
+    return tier_r
 
 
 def potential_based_shaping_reward(env: TabularMarkovDecisionProcess):
@@ -66,5 +105,42 @@ def potential_based_shaping_reward(env: TabularMarkovDecisionProcess):
 
 if __name__ == "__main__":
     # testing this script
-    r = make_tier_reward(60, 7)
+    r = make_chain_tier_reward(60, 7)
     print(r)
+
+    from pathlib import Path
+    from reward.environments import make_single_goal_square_grid
+    from reward.environments.plot import plot_grid_reward
+    discount = 0.95
+    num_side_states = 9
+    num_tiers = 5
+    delta = 0.1
+    env = make_single_goal_square_grid(
+        num_side_states=num_side_states,
+        discount_rate=discount,
+        success_prob=0.8,
+        step_cost=-1,
+        goal_reward=1,
+        custom_reward=None,
+    )
+    tier_r = make_distance_based_tier_reward(
+        env,
+        num_tiers=num_tiers,
+        gamma=discount,
+        delta=delta,
+    )
+    print(tier_r)
+    tier_env = make_single_goal_square_grid(
+        num_side_states=num_side_states,
+        discount_rate=discount,
+        success_prob=0.8,
+        step_cost=None,
+        goal_reward=None,
+        custom_reward=tier_r,
+    )
+
+    plot_grid_reward(
+        tier_env,
+        plot_name_prefix='',
+        results_dir=Path('./results/'),
+    )
