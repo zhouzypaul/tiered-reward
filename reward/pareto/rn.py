@@ -299,7 +299,7 @@ def check_all_rewards_for_paretoness(env_name):
         p_lava_final = p_lavas[-1]
         kvlogger.logkv('p_goal_final', p_goal_final)
         kvlogger.logkv('p_lava_final', p_lava_final)
-        kvlogger.logkv('r', r)
+        kvlogger.logkv('r', reward_funcs[i])
         kvlogger.logkv('r_lava', r_lava)
         kvlogger.logkv('r_step', r_step)
         kvlogger.logkv('r_goal', r_goal)
