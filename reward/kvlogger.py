@@ -416,6 +416,7 @@ def _demo():
 # ================================================================
 
 def read_json(fname):
+    assert os.path.exists(fname)
     import pandas
     ds = []
     with open(fname, 'rt') as fh:

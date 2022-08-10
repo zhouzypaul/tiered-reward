@@ -59,47 +59,22 @@ def make_env(env_name, **params):
         raise ValueError(f'unknown environment {env_name}')
 
 
-def make_policy(env_name, is_pareto, verbose=False):
+def make_policy(env_name, lava_penalty, step_cost, goal_reward, verbose=False):
     """
-    make a policy for the RN gridworld
-    Pareto policy results from reward goal +1, lava -1, step cost -0.04
-    Non-Pareto policy results from reward goal +1, lava -1, step cost -0.5
-    args:
-        is_pareto: whether the policy is pareto
+    make thee policies
     """
+    assert env_name == 'rn_grid'
+
     gamma = 0.95
     env_params = {
         'discount_rate': gamma,
         'slip_prob': 0.8,
+        'goal_reward': goal_reward,
+        'lava_penalty': lava_penalty,
+        'step_cost': step_cost,
     }
-
-    if env_name == 'rn_grid':
-        goal_reward = 1 if is_pareto else 1
-        lava_penalty = -1 if is_pareto else 1
-        step_cost = -0.04 if is_pareto else 0
-        if is_pareto:
-            assert lava_penalty < 1/(1-gamma) * step_cost < goal_reward
-        env_params = {
-            **env_params,
-            'goal_reward': goal_reward,
-            'lava_penalty': lava_penalty,
-            'step_cost': step_cost,
-        }
-
-    elif env_name == 'puddle':
-        goal_reward = 1 if is_pareto else -1
-        step_cost = 0 if is_pareto else 0
-        puddle_cost = -0.3 if is_pareto else 0.5
-        env_params = {
-            **env_params,
-            'goal_reward': goal_reward,
-            'step_cost': step_cost,
-            'puddle_cost': puddle_cost,
-        }
-
     mdp = make_env(env_name, **env_params)
 
-    
     vi = ValueIteration()
     result = vi.plan_on(mdp)
     policy = result.policy
@@ -110,11 +85,29 @@ def make_policy(env_name, is_pareto, verbose=False):
         else: 
             plot = mdp.plot(True)
             plot.pP(policy) # plots policy
-        save_path = f'results/{env_name}/policy_pareto_{is_pareto}.png'
+        save_path = f'results/{env_name}/policy_({lava_penalty, step_cost, goal_reward}).png'
         plt.savefig(save_path)
         print(f'policy saved to {save_path}')
         plt.close()
     return mdp, policy
+
+
+def make_one_direction_policy(env, direction):
+    """
+    make a policy one the environment such that all policy take the specified direction
+    """
+    dir_to_action = {
+        'left': 0,
+        'down': 1,
+        'up': 2,
+        'right': 3,
+    }
+    states, actions = get_ordered_state_action_list(env)
+    n_states = len(states)
+    n_actions = len(actions)
+    policy_mat = np.zeros((n_states, n_actions))
+    policy_mat[:, dir_to_action[direction]] = 1
+    return TabularPolicy.from_matrix(states, actions, policy_mat)
 
 
 def _accumulate_state_distribution(state_dist):
@@ -128,38 +121,83 @@ def _accumulate_state_distribution(state_dist):
         return state_dist.sum(axis=1)
 
 
-def plot_pareto_policy_termination_prob(env_name, num_steps, verbose=False):
+def plot_policy_termination_prob(env_name, num_steps, verbose=False):
     """
-    make the plot comparing a pareto policy with a non-pareto one wrt its termination probability
+    make three policies and compare their termination probabilities
     """
-    # pareto
-    pareto_mdp, pareto_policy = make_policy(env_name, is_pareto=True, verbose=verbose)
-    pareto_state_dist = get_state_distribution(pareto_mdp, pareto_policy, num_steps=num_steps)
-    pareto_goal_probs = _accumulate_state_distribution(pareto_state_dist[:, GOAL])
-    pareto_lava_probs = _accumulate_state_distribution(pareto_state_dist[:, LAVA])  # (nsteps, )
+    colors = {
+        'R': 'r',
+        'G': 'g',
+        'B': 'b',
+        'up': 'c',
+        'left': 'm',
+        'right': 'y',
+    }
+    rewards = {
+        'R': (-1, -0.1, 1),
+        'G': (-1, 0, 0.5),
+        'B': (-1, -0.9, 0),
+    }
+    data = []
 
-    # non-pareto
-    non_pareto_mdp, non_pareto_policy = make_policy(env_name, is_pareto=False, verbose=verbose) 
-    non_pareto_state_dist = get_state_distribution(non_pareto_mdp, non_pareto_policy, num_steps=num_steps)
-    non_pareto_goal_probs = _accumulate_state_distribution(non_pareto_state_dist[:, GOAL])
-    non_pareto_lava_probs = _accumulate_state_distribution(non_pareto_state_dist[:, LAVA])
+    for r_name, r in rewards.items():
+        # compute
+        mdp, policy = make_policy(env_name, *r)
+        state_dist = get_state_distribution(mdp, policy, num_steps)
+        goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
+        lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])  # (nsteps,)
+        # # log data
+        # d = {
+        #     'Reward': r_name,
+        #     # 'r': (r,),
+        #     'Step': list(range(1, num_steps+1)) * 2,
+        #     'Prob Type': ['goal'] * num_steps + ['lava'] * num_steps,
+        #     'Prob': np.append(goal_probs, -lava_probs),
+        #     # 'Goal': goal_probs,
+        #     # 'Lava': -lava_probs,
+        # }
+        # df = pd.DataFrame(d)
+        # data.append(df)
+        # plot 
+        plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors[r_name], label=f"{r_name}", alpha=0.5)
+        plt.plot(range(1, num_steps+1), lava_probs-1, '-.', color=colors[r_name], alpha=0.5)
+        plt.fill_between(range(1, num_steps+1), goal_probs, lava_probs-1, color=colors[r_name], alpha=0.5)
+    
+    for direction in ['up', 'left', 'right']:
+        policy = make_one_direction_policy(mdp, direction)
+        state_dist = get_state_distribution(mdp, policy, num_steps)
+        goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
+        lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])  # (nsteps,)
+        plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors[direction], label=f"{direction}", alpha=0.5)
+        plt.plot(range(1, num_steps+1), lava_probs-1, '-.', color=colors[direction], alpha=0.5)
+        plt.fill_between(range(1, num_steps+1), goal_probs, lava_probs-1, color=colors[direction], alpha=0.5)
+    
+    # data = pd.concat(data, ignore_index=True)
 
     # plot
-    pareto_color = 'c'
-    non_pareto_color = 'm'
-    plt.plot(pareto_goal_probs, color=pareto_color, label='goal: pareto')
-    plt.plot(non_pareto_goal_probs, color=non_pareto_color, label='goal: non-pareto')
-    plt.plot(pareto_lava_probs, '-.', color=pareto_color, label='lava: pareto')
-    plt.plot(non_pareto_lava_probs, '-.', color=non_pareto_color, label='lava: non-pareto')
-    plt.legend()
-    plt.title('Probability of Reaching Goal/Lava')
-    plt.xlabel('Time Step')
-    plt.ylabel('Cumulative Probability')
-    save_path = f'results/{env_name}/pareto_prob.png'
+    # sns.lineplot(
+    #     data=data,
+    #     x='Step',
+    #     y='Prob',
+    #     hue='Reward',
+    #     style='Prob Type',
+    #     alpha=0.5,
+    # )
+    # sns.lineplot(
+    #     data=data,
+    #     x='Step',
+    #     y='Lava',
+    #     hue='Reward',
+    #     alpha=0.5,
+    # )
+    plt.legend(loc='upper left')
+    plt.title(f'Comparing Policies')
+    plt.xlabel('Step')
+    plt.ylabel('Termination Probability')
+    save_path = f'results/{env_name}/termination_prob.png'
     plt.savefig(save_path)
-    print(f'Saved to {save_path}')
+    print(f'plot saved to {save_path}')
     plt.close()
-
 
 
 def policy_through_reward(env_name: str, mdp: TabularMarkovDecisionProcess, precision: float=-0.01) -> TabularPolicy:
@@ -327,20 +365,46 @@ def check_all_rewards_for_paretoness(env_name):
     plt.close()
 
 
-def debug():
-    """ testing this script """
-    from reward.environments import make_one_dim_chain
-    from msdm.algorithms import ValueIteration
-    chain = make_one_dim_chain(num_states=10, goal_reward=1, step_reward=-1, discount_rate=0.9)
-    vi = ValueIteration()
-    result = vi.plan_on(chain)
-    policy = result.policy
+def print_interesting_reward(results_path, find_good_rewards=False):
+    """
+    print the reward function that are interesting
+    """
+    df = kvlogger.read_json(results_path)
 
-    state_distribution = get_state_distribution(chain, policy, num_steps=15)
-    print(state_distribution)
+    # round the rewards to the nearest 0.1
+    df.r_goal = df.r_goal.apply(lambda x: round(x, 2))
+    df.r_step = df.r_step.apply(lambda x: round(x, 2))
+    df.r_lava = df.r_lava.apply(lambda x: round(x, 2))
+    df.r = df.apply(lambda row: np.array([row.r_lava, row.r_step, row.r_goal]), axis=1)
 
-    from reward.environments.plot import visualize_grid_world_and_policy
-    visualize_grid_world_and_policy(chain, plot_name_prefix='debug', results_dir='results', policy=policy)
+    # intuitive constraints
+    df = df[df.r_lava < df.r_step]
+    df = df[df.r_step < df.r_goal]
+
+    if find_good_rewards:
+        df = df[df['label'] == 'pareto optimal']
+        df = df[df.r_lava < 0]
+        df = df[df.r_step <= 0]
+        df = df[df.r_goal >= 0]
+
+        # df = df[df.r_lava == -1]
+        # df = df[df.r_goal == 1]
+        df = df.sort_values(by='p_lava_final', ascending=True)
+
+    else:
+        df = df[df['label'] == 'pareto dominated']
+        df = df[df.r_lava < 0]
+        df = df[df.r_lava == -1]
+        # df = df[df.r_step <= 0]
+        df = df[df.r_goal >= 0]
+        
+        df = df[df.p_goal_final < 0.2]
+        # df = df[df.p_goal_final > 0]
+        # df = df[df.p_lava_final < 0.2]
+
+
+    print(df[['r', 'r_lava', 'r_step', 'r_goal', 'label', 'p_goal_final', 'p_lava_final']])
+
 
 
 if __name__ == '__main__':
@@ -350,17 +414,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # experiments
     parser.add_argument('--env', type=str, default='rn_grid')
+    parser.add_argument('--print', '-p', action='store_true', help='print interesting reward functions')
+    parser.add_argument('--plot', action='store_true', help='plot interesting reward functions')
+    parser.add_argument('--find_good_rewards', '-g', action='store_true', help='find good reward functions')
     
     # debug
     parser.add_argument("--verbose", "-v", action="store_true", default=False)
-    parser.add_argument('--debug', action='store_true', default=False)
 
     args = parser.parse_args()
     
     results_dir = f'results/{args.env}'
     os.makedirs(results_dir, exist_ok=True)
-    kvlogger.configure(results_dir, format_strs=['json'])
-    print(f"logging to {results_dir}/progress.json")
 
     # environmental constant 
     if args.env == 'rn_grid':
@@ -368,5 +432,12 @@ if __name__ == '__main__':
         LAVA = 9
         NUM_STEPS = 20
     
-    check_all_rewards_for_paretoness(args.env)
+    if args.print:
+        print_interesting_reward(results_dir + '/progress.json', find_good_rewards=args.find_good_rewards)
+    elif args.plot:
+        plot_policy_termination_prob(args.env, num_steps=10, verbose=args.verbose)
+    else:
+        kvlogger.configure(results_dir, format_strs=['json'])
+        print(f"logging to {results_dir}/progress.json")
+        check_all_rewards_for_paretoness(args.env)
     # plot_pareto_policy_termination_prob(args.env, num_steps=NUM_STEPS, verbose=args.verbose)
