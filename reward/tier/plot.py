@@ -20,7 +20,7 @@ def plot_q_learning_results(results_dir):
         data=df,
         x='step',
         y='episodic_reward',
-        hue='reward_type',
+        hue='Reward Type',
     )
     plt.title('Episodic Reward')
     plt.xlabel('Step')
@@ -46,12 +46,12 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
         assert os.path.exists(csv_path), csv_path
         df = pd.read_csv(csv_path)
         df['tier'] = int(tier)
-        df = df[['tier', 'time_till_goal', 'num_goals_hit', 'seed', 'reward_type']]
+        df = df[['tier', 'time_till_goal', 'num_goals_hit', 'seed', 'Reward Type']]
         # separate each reward type
         clean_df = []
-        for r_type, r_type_df in df.groupby('reward_type'):
+        for r_type, r_type_df in df.groupby('Reward Type'):
             r_type_df = r_type_df.copy().groupby('seed', as_index=False).mean()  # mean to remove repetitive data
-            r_type_df['reward_type'] = r_type
+            r_type_df['Reward Type'] = r_type
             clean_df.append(r_type_df)
         clean_df = pd.concat(clean_df, ignore_index=True)
         data.append(clean_df)
@@ -62,7 +62,7 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
         data=data,
         x='tier',
         y='time_till_goal',
-        hue='reward_type',
+        hue='Reward Type',
     )
     plt.title(f'Learning Time: {env_name}')
     plt.xlabel('Tier')
@@ -77,7 +77,7 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
         data=data,
         x='tier',
         y='num_goals_hit',
-        hue='reward_type',
+        hue='Reward Type',
     )
     plt.title(f'Number of Goals Hit: {env_name}')
     plt.xlabel('Tier')

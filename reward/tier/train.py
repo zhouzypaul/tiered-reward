@@ -75,7 +75,6 @@ def make_env(env_name, num_tiers, discount, delta):
             success_rate=0.8,
             custom_rewards=tier_r,
         )
-        pbs_env = potential_based_shaping_reward(env)
     
     elif env_name == 'grid':
         num_side_states = 9
@@ -102,11 +101,17 @@ def make_env(env_name, num_tiers, discount, delta):
             goal_reward=None,
             custom_reward=tier_r,
         )
-        pbs_env = potential_based_shaping_reward(env)
 
     else:
         raise NotImplementedError
-    return env, tier_env, pbs_env
+
+    pbs_env = potential_based_shaping_reward(env)
+    tier_pbs_env = potential_based_shaping_reward(
+        env,
+        shaping_func=lambda s: tier_r[env.state_index[s]]
+    )
+
+    return env, tier_env, pbs_env, tier_pbs_env
 
 
 if __name__ == "__main__":
@@ -136,7 +141,7 @@ if __name__ == "__main__":
         create_log_dir(saving_dir, remove_existing=True)
 
         # make env
-        env, tier_env, pbs_env = make_env(args.env, tier, args.gamma, args.delta)
+        env, tier_env, pbs_env, tier_pbs_env = make_env(args.env, tier, args.gamma, args.delta)
         
         # training
         results = train_on_env(env, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
@@ -148,6 +153,9 @@ if __name__ == "__main__":
         pbs_results = train_on_env(pbs_env, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
         print('potential-based shaping reward')
         print([res.NumGoalsHit for res in pbs_results])
+        tiered_pbs_results = train_on_env(tier_pbs_env, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
+        print('Tier-based shaping reward')
+        print([res.NumGoalsHit for res in tiered_pbs_results])
 
         # log results
         def log_results(result, reward_type):
@@ -156,16 +164,17 @@ if __name__ == "__main__":
                 for step, ep_reward in episodic_reward.items():
                     kvlogger.logkv('step', step)
                     kvlogger.logkv('episodic_reward', ep_reward)
-                    kvlogger.logkv('reward_type', reward_type)
+                    kvlogger.logkv('Reward Type', reward_type)
                     kvlogger.logkv('time_till_goal', res.TimeAtGoal)
                     kvlogger.logkv('num_goals_hit', res.NumGoalsHit)
                     kvlogger.logkv('seed', res.Seed)
                     kvlogger.dumpkvs()
 
         kvlogger.configure(saving_dir, format_strs=['csv'], log_suffix='')
-        log_results(results, 'original')
-        log_results(tiered_results, 'tiered')
-        log_results(pbs_results, 'potential based shaping')
+        log_results(results, 'Original')
+        log_results(tiered_results, 'Tiered')
+        log_results(pbs_results, 'Potential Based Shaping')
+        log_results(tiered_pbs_results, 'Tier Based Shaping')
 
     # plot results
     compare_goal_hitting_stat_with_different_tiers(os.path.join('results', f"{args.env}-qlearning"), args.tiers)

@@ -82,20 +82,22 @@ def make_distance_based_tier_reward(env, num_tiers, gamma, delta):
     return tier_r
 
 
-def potential_based_shaping_reward(env: TabularMarkovDecisionProcess):
+def potential_based_shaping_reward(env: TabularMarkovDecisionProcess, shaping_func=None):
     """
     take in a TabularMDP, and output the potential based shaped reward
     NOTE: this wrapper should only be used for Q Learning, 
           don't use the wrapper for anything else, because it only overwrites the reward
           function, the reward matrix is off, and others may be too.
     """
-    vi = ValueIteration()
-    res = vi.plan_on(env)
-    values = res.V
+    if shaping_func is None:
+        vi = ValueIteration()
+        res = vi.plan_on(env)
+        values = res.V
+        shaping_func = lambda s: values[s]
     original_reward_func = deepcopy(env.reward)
 
     def shaped_reward(s, a, ns):
-        shaping = values[ns] * env.discount_rate - values[s]
+        shaping = shaping_func(ns) * env.discount_rate - shaping_func(s)
         return shaping + original_reward_func(s, a, ns)
     
     pbs_env = deepcopy(env)
