@@ -9,6 +9,8 @@ import tempfile
 from collections import defaultdict
 from contextlib import contextmanager
 
+import numpy as np
+
 DEBUG = 10
 INFO = 20
 WARN = 30
@@ -91,8 +93,8 @@ class JSONOutputFormat(KVWriter):
 
     def writekvs(self, kvs):
         for k, v in sorted(kvs.items()):
-            if hasattr(v, 'dtype'):
-                kvs[k] = float(v)
+            if type(v) == np.ndarray:
+                kvs[k] = list(v)
         self.file.write(json.dumps(kvs) + '\n')
         self.file.flush()
 
