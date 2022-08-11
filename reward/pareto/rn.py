@@ -135,7 +135,7 @@ def plot_policy_termination_prob(env_name, num_steps, verbose=False):
         'down': '#eb344f',
     }
     rewards = {
-        'R': (-1, -0.1, 1),
+        'R': (-1, -0.1, +1),
         'G': (-1, 0, 0.5),
         'B': (-1, -0.9, 0),
     }
@@ -161,6 +161,14 @@ def plot_policy_termination_prob(env_name, num_steps, verbose=False):
     print(f'plot saved to {save_path}')
     plt.close()
 
+    r_red = rewards['R']
+    mdp, policy = make_policy(env_name, *r_red)
+    state_dist = get_state_distribution(mdp, policy, num_steps)
+    goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
+    lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])  # (nsteps,)
+    plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors['R'], label=f"move to goal")
+    plt.plot(range(1, num_steps+1), lava_probs-1, '-.', color=colors['R'])
+    plt.fill_between(range(1, num_steps+1), goal_probs, lava_probs-1, color=colors['R'], alpha=0.5)
     for direction in ['left', 'right']:
         policy = make_one_direction_policy(mdp, direction)
         state_dist = get_state_distribution(mdp, policy, num_steps)
