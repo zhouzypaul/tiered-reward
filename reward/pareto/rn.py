@@ -59,13 +59,12 @@ def make_env(env_name, **params):
         raise ValueError(f'unknown environment {env_name}')
 
 
-def make_policy(env_name, lava_penalty, step_cost, goal_reward, verbose=False):
+def make_policy(env_name, gamma, lava_penalty, step_cost, goal_reward, verbose=False):
     """
-    make thee policies
+    make one policy
     """
     assert env_name == 'rn_grid'
 
-    gamma = 0.95
     env_params = {
         'discount_rate': gamma,
         'slip_prob': 0.8,
@@ -121,7 +120,7 @@ def _accumulate_state_distribution(state_dist):
         return state_dist.sum(axis=1)
 
 
-def plot_policy_termination_prob(env_name, num_steps, verbose=False):
+def plot_policy_termination_prob(env_name, gamma, num_steps, verbose=False):
     """
     make three policies and compare their termination probabilities
     """
@@ -142,7 +141,7 @@ def plot_policy_termination_prob(env_name, num_steps, verbose=False):
 
     for r_name, r in rewards.items():
         # compute
-        mdp, policy = make_policy(env_name, *r)
+        mdp, policy = make_policy(env_name, gamma, *r)
         state_dist = get_state_distribution(mdp, policy, num_steps)
         goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
         lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])  # (nsteps,)
@@ -162,7 +161,7 @@ def plot_policy_termination_prob(env_name, num_steps, verbose=False):
     plt.close()
 
     r_red = rewards['R']
-    mdp, policy = make_policy(env_name, *r_red)
+    mdp, policy = make_policy(env_name, gamma, *r_red)
     state_dist = get_state_distribution(mdp, policy, num_steps)
     goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
     lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])  # (nsteps,)
@@ -189,13 +188,12 @@ def plot_policy_termination_prob(env_name, num_steps, verbose=False):
     plt.close()
 
 
-def policy_through_reward(env_name: str, mdp: TabularMarkovDecisionProcess, precision: float=-0.01) -> TabularPolicy:
+def policy_through_reward(env_name: str, gamma: float, mdp: TabularMarkovDecisionProcess, precision: float=-0.01) -> TabularPolicy:
     """
     gather all possible reward functions, and return the policy
     args:
         mdp: not used, keeping it consistent for API 
     """
-    gamma = 0.95
     env_params = {
         'discount_rate': gamma,
         'slip_prob': 0.8,
@@ -285,13 +283,13 @@ def determine_whether_pareto(goal_timestep_probs, lava_timestep_probs):
     return labels
 
 
-def check_all_rewards_for_paretoness(env_name):
+def check_all_rewards_for_paretoness(env_name, gamma):
     """
     generate a bunch of randon policies, and plot each policy in a 2D grid as (prob_success, prob_fail)
     """
     # only need this for state, action list, transition matrix, initial state distribution
     env_params = {
-        'discount_rate': 0.95,
+        'discount_rate': gamma,
         'slip_prob': 0.8,  # matters for the transition matrix
     }
     pseudo_mdp = make_env(env_name, **env_params)
@@ -308,7 +306,7 @@ def check_all_rewards_for_paretoness(env_name):
     p_lava_all = np.zeros((num_examples, NUM_STEPS))
     stats = np.zeros((num_examples, 2))
     reward_funcs = np.zeros((num_examples, 3))
-    for i, (policy, r) in enumerate(policy_through_reward(env_name, pseudo_mdp, precision=precision)):
+    for i, (policy, r) in enumerate(policy_through_reward(env_name, gamma, pseudo_mdp, precision=precision)):
         p_goal, p_lava = get_success_and_failure_prob(pseudo_mdp, policy, num_steps=NUM_STEPS)
         reward_funcs[i, :] = r
         p_goals_all[i, :] = p_goal
@@ -406,6 +404,8 @@ if __name__ == '__main__':
     parser.add_argument('--print', '-p', action='store_true', help='print interesting reward functions')
     parser.add_argument('--plot', action='store_true', help='plot interesting reward functions')
     parser.add_argument('--find_good_rewards', '-g', action='store_true', help='find good reward functions')
+
+    parser.add_argument('--gamma', type=float, default=0.90)
     
     # debug
     parser.add_argument("--verbose", "-v", action="store_true", default=False)
@@ -424,9 +424,8 @@ if __name__ == '__main__':
     if args.print:
         print_interesting_reward(results_dir + '/progress.json', find_good_rewards=args.find_good_rewards)
     elif args.plot:
-        plot_policy_termination_prob(args.env, num_steps=10, verbose=args.verbose)
+        plot_policy_termination_prob(args.env, args.gamma, num_steps=10, verbose=args.verbose)
     else:
         kvlogger.configure(results_dir, format_strs=['json'])
         print(f"logging to {results_dir}/progress.json")
-        check_all_rewards_for_paretoness(args.env)
-    # plot_pareto_policy_termination_prob(args.env, num_steps=NUM_STEPS, verbose=args.verbose)
+        check_all_rewards_for_paretoness(args.env, args.gamma)
