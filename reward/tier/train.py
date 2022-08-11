@@ -3,7 +3,7 @@ import argparse
 
 import numpy as np
 
-from reward.environments import make_one_dim_chain, make_single_goal_square_grid, make_frozen_lake
+from reward.environments import make_one_dim_chain, make_single_goal_square_grid, make_frozen_lake, make_russell_norvig_grid
 from reward.agents.qlearning import run_multiprocessing_q_learning, run_q_learning, QLearning
 from reward.tier.reward_functions import potential_based_shaping_reward, make_distance_based_tier_reward, _get_tier_reward
 from reward.tier.plot import compare_goal_hitting_stat_with_different_tiers
@@ -116,7 +116,21 @@ def make_env(env_name, num_tiers, discount, delta):
             hole_penalty=_get_tier_reward(tier=0, gamma=discount),
         )
         tier_r = tier_env.reward_vector
-            
+    
+    elif env_name == "rn_grid":
+        env = make_russell_norvig_grid(
+            discount_rate=discount,
+            goal_reward=1,
+            lava_penalty=-1,
+            step_cost=-1,
+        )
+        tier_env = make_russell_norvig_grid(
+            discount_rate=discount,
+            goal_reward=1,
+            lava_penalty=-1,
+            step_cost=-0.04,
+        )
+        tier_r = tier_env.reward_vector
 
     else:
         raise NotImplementedError
@@ -133,7 +147,7 @@ def make_env(env_name, num_tiers, discount, delta):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=str, default="chain",
-                        choices=["chain", "grid", "frozen_lake"],)
+                        choices=["chain", "grid", "frozen_lake", "rn_grid"],)
     parser.add_argument("--steps", type=int, default=100_000)
     parser.add_argument("--tiers", "-t", type=int, nargs="+", default=[5], help="number of tiers to use for reward")
     parser.add_argument("--seed", "-s", type=int, default=0, help="random seed")
