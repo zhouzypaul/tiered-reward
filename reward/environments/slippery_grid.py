@@ -150,8 +150,7 @@ class SlipperyGrid(GridWorld):
             # use default rewards
             reward_vec = np.zeros((len(self.state_list), ))
             for s in self.state_list:
-                # reward only depends on leaving at s
-                reward_vec[self.state_index[s]] = self.reward(s, None, None)
+                reward_vec[self.state_index[s]] = self.reward(None, None, s)
             return reward_vec
         else:
             # use custom rewards

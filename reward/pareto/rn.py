@@ -374,7 +374,7 @@ def print_interesting_reward(results_path, find_good_rewards=False):
         df = df[df.r_step <= 0]
         df = df[df.r_goal >= 0]
 
-        # df = df[df.r_lava == -1]
+        df = df[df.r_lava == -1]
         # df = df[df.r_goal == 1]
         df = df.sort_values(by='p_lava_final', ascending=True)
 

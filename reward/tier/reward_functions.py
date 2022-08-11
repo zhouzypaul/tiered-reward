@@ -6,7 +6,7 @@ from msdm.algorithms import ValueIteration
 from msdm.core.problemclasses.mdp import TabularMarkovDecisionProcess
 
 
-def _get_tier_reward(tier, gamma, delta):
+def _get_tier_reward(tier, gamma, delta=0.1):
     """
     what's the reward for the i-the tier
     tier          reward
