@@ -9,8 +9,7 @@ class FrozenLake(SlipperyGrid):
     Checkout the gym documentation for more information on how the gridworld works
     
     Basically, it's a reward.environments.slippery_grid.SlipperyGrid
-    However, there are holes (feature h) on the frozen lake, which will take you back
-    to the start state when you fall into them. 
+    However, there are holes (feature h) on the frozen lake, which will trap you inside.
     
     The success probabiliy is always 1/3, with 1/3 probability of slipping to either side
     """
@@ -30,7 +29,7 @@ class FrozenLake(SlipperyGrid):
         super().__init__(
             tile_array=tile_array,
             feature_rewards=feature_rewards,
-            absorbing_features=('g',),
+            absorbing_features=('g', 'h'),
             wall_features=(),
             default_features=('.', ),
             initial_features=('s', ),
@@ -39,15 +38,6 @@ class FrozenLake(SlipperyGrid):
             discount_rate=discount_rate,
             custom_rewards=None,
         )
-    
-    def next_state_dist(self, s, a) -> FiniteDistribution:
-        """
-        the only difference from that of super() is that this considers holes
-        """
-        if self.location_features.get(s, '') == 'h':
-            return self.initial_state_dist()
-        else:
-            return super().next_state_dist(s, a)
 
 
 def make_frozen_lake(discount_rate, goal_reward, step_cost, hole_penalty):

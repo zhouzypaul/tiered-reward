@@ -19,7 +19,7 @@ class SlipperyGrid(GridWorld):
     def __init__(self,
                 tile_array=None,
                 feature_rewards=None,
-                absorbing_features=("g",),
+                absorbing_features=("g", "x"),
                 wall_features=("#",),
                 default_features=(".",),
                 initial_features=("s",),
@@ -80,12 +80,13 @@ class SlipperyGrid(GridWorld):
         self.discount_rate = discount_rate
         self._height = len(elementArray)
         self._width = len(elementArray[0])
+        self.absorbing_features = absorbing_features
 
         # custom reward
         self.custom_rewards = custom_rewards
 
     def is_terminal(self, s):
-        return self.location_features.get(s, '') in ['g', 'x']
+        return self.location_features.get(s, '') in self.absorbing_features
 
     def next_state_dist(self, s, a) -> FiniteDistribution:
         if self.is_terminal(s):
