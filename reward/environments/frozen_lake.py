@@ -21,10 +21,14 @@ class FrozenLake(SlipperyGrid):
         ):
         if tile_array is None:
             tile_array = [
-                's...',
-                '.h.h',
-                '...h',
-                'h..g',
+                's.......',
+                '........',
+                '...h....',
+                '.....h..',
+                '...h....',
+                '.hh...h.',
+                '.h..h.h.',
+                '...h...g',
             ]
         super().__init__(
             tile_array=tile_array,
