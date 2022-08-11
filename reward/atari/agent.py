@@ -40,7 +40,7 @@ def optimistic_init_chainer_default(layer):
         init_lecun_normal(layer.weight)
         if layer.bias is not None:
             # layer may be initialized with bias=False
-            nn.init.constant_(layer.bias, 1e25)
+            nn.init.constant_(layer.bias, 1e15)
     return layer
 
 
