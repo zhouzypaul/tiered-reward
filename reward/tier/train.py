@@ -4,33 +4,29 @@ import argparse
 import numpy as np
 
 from reward.environments import make_one_dim_chain, make_single_goal_square_grid, make_frozen_lake, make_russell_norvig_grid
-from reward.agents.qlearning import run_multiprocessing_q_learning, run_q_learning, QLearning
+from reward.agents import QLearning, RMaxAgent, run_learning, run_multiprocessing_learning
 from reward.tier.reward_functions import potential_based_shaping_reward, make_distance_based_tier_reward, _get_tier_reward
 from reward.tier.plot import compare_goal_hitting_stat_with_different_tiers
 from reward.utils import create_log_dir
 from reward import kvlogger
 
 
-def train_on_env(env, num_steps, seed, num_seeds, multiprocessing=True, verbose=False):
+def train_on_env(env, agent_name, num_steps, num_seeds, multiprocessing=True, verbose=False, seed=0):
     """
-    train on one environment, with one specific reward function
+    train on one specific environment, with one agent
     """
     if multiprocessing:
-        results = run_multiprocessing_q_learning(
-            env, 
-            rand_choose=0,
-            initial_q=1e10,
-            num_seeds=num_seeds,
-            num_learning_steps=num_steps,
+        agents = [
+            make_agent(agent_name, seed=s, num_steps=num_steps)
+            for s in range(num_seeds)
+        ]
+        results = run_multiprocessing_learning(
+            env,
+            agents=agents,
         )
     else:
-        agent = QLearning(
-            num_steps=num_steps,
-            rand_choose=0,
-            initial_q=1e10,
-            seed=seed,
-        )
-        result = run_q_learning(env, agent)
+        agent = make_agent(agent_name, seed, num_steps)
+        result = run_learning(env, agent)
         results = [result]
 
     if verbose:
@@ -43,12 +39,34 @@ def train_on_env(env, num_steps, seed, num_seeds, multiprocessing=True, verbose=
 
     return results
 
+def make_agent(agent_name, seed, num_steps):
+    """
+    create the learning agent
+    """
+    optimistic_value = 1e10
+    if agent_name == 'qlearning':
+        agent = QLearning(
+            num_steps=num_steps,
+            rand_choose=0,
+            initial_q=optimistic_value,
+            seed=seed,
+        )
+    elif agent_name == 'rmax':
+        agent = RMaxAgent(
+            num_steps=num_steps,
+            rmax=optimistic_value,
+            seed=seed,
+        )
+    else:
+        raise NotImplementedError
+    return agent
+
 
 def make_env(env_name, num_tiers, discount, delta):
     """
-    create three environments
+    create four environments
     returns:
-        env, tier_env, potential_based_shaped_env
+        env, tier_env, value_based_shapping_env, tier_based_shaping_env
     """
     if env_name == "chain":
         num_chain_states = 9
@@ -148,6 +166,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=str, default="chain",
                         choices=["chain", "grid", "frozen_lake", "rn_grid"],)
+    parser.add_argument('--agent', type=str, default='qlearning',
+                        choices=['qlearning', 'rmax'])
     parser.add_argument("--steps", type=int, default=100_000)
     parser.add_argument("--tiers", "-t", type=int, nargs="+", default=[5], help="number of tiers to use for reward")
     parser.add_argument("--seed", "-s", type=int, default=0, help="random seed")
@@ -167,23 +187,23 @@ if __name__ == "__main__":
     for tier in args.tiers:
 
         # saving dir
-        saving_dir = os.path.join('results', f"{args.env}-qlearning", f"{tier}-tier")
+        saving_dir = os.path.join('results', f"{args.env}-{args.agent}", f"{tier}-tier")
         create_log_dir(saving_dir, remove_existing=True)
 
         # make env
         env, tier_env, pbs_env, tier_pbs_env = make_env(args.env, tier, args.gamma, args.delta)
         
         # training
-        results = train_on_env(env, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
+        results = train_on_env(env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
         print('original reward')
         print([res.NumGoalsHit for res in results])
-        tiered_results = train_on_env(tier_env, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
+        tiered_results = train_on_env(tier_env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
         print('tiered reward')
         print([res.NumGoalsHit for res in tiered_results])
-        pbs_results = train_on_env(pbs_env, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
+        pbs_results = train_on_env(pbs_env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
         print('potential-based shaping reward')
         print([res.NumGoalsHit for res in pbs_results])
-        tiered_pbs_results = train_on_env(tier_pbs_env, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
+        tiered_pbs_results = train_on_env(tier_pbs_env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
         print('Tier-based shaping reward')
         print([res.NumGoalsHit for res in tiered_pbs_results])
 
@@ -207,4 +227,4 @@ if __name__ == "__main__":
         log_results(tiered_pbs_results, 'Tier Based Shaping')
 
     # plot results
-    compare_goal_hitting_stat_with_different_tiers(os.path.join('results', f"{args.env}-qlearning"), args.tiers)
+    compare_goal_hitting_stat_with_different_tiers(os.path.join('results', f"{args.env}-{args.agent}"), args.tiers)

@@ -1,4 +1,3 @@
-import numpy as np
 from pathos.pools import ProcessPool
 from msdm.algorithms.tdlearning import epsilon_softmax_sample
 from msdm.algorithms import QLearning as MSDMQLearning
