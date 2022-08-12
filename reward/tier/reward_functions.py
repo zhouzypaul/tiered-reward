@@ -22,6 +22,64 @@ def _get_tier_reward(tier, num_total_tiers, gamma, delta=0.1):
         return _get_tier_reward(tier+1, num_total_tiers, gamma, delta) * h - delta
 
 
+def get_l1_distance(a, b):
+    """
+    L1 distance of two msdm states
+    a, b: both are frozendict({'x': x, 'y': y})
+    """
+    return abs(a['x'] - b['x']) + abs(a['y'] - b['y'])
+
+
+def make_frozen_lake_tier_reward(env, num_tiers, gamma, delta):
+    """
+    make a tier reward function for frozen lake
+    
+    the tiers are based on the L1 distance to the goal state
+    the holes will always be the worst tiers
+    the single goal will always the highest tier
+    """
+    assert num_tiers >= 3  # at least 3 tiers
+    def _find_feature_index(f):
+        states = []
+        indexes = []
+        for s, si in env.state_index.items():
+            if env.location_features.get(s, 's') == f:
+                states.append(s)
+                indexes.append(si)
+        return states, indexes
+    # find all the hole states
+    holes, idx_holes = _find_feature_index('h')
+    assert len(idx_holes) == 10
+    # find the goal state
+    goal, idx_goal = _find_feature_index('g')
+    assert len(idx_goal) == 1
+    goal_state = goal[0]
+    # bin according to distance
+    terminal_states = holes + goal
+    state_to_distance = {s: get_l1_distance(s, goal_state) for s in env.state_list if s not in terminal_states}
+    distances = np.array(list(state_to_distance.values()))
+    bined_distance = np.digitize(distances, np.linspace(np.max(distances), 0, num_tiers-2))  # indices of the bins to which each value in input array belongs
+    if num_tiers == 3:
+        # a small hack to prevent there being two bins
+        bined_distance = np.zeros_like(bined_distance)
+    state_to_bin_idx = {s: bined_distance[i] for i, s in enumerate(state_to_distance.keys())}
+
+    # build the tiered reward
+    tier_r = np.zeros(len(env.state_list))
+    for s, si in env.state_index.items():
+        if si in idx_goal:
+            # top tier
+            tier_r[si] = _get_tier_reward(num_tiers-1, num_tiers, gamma, delta)
+        elif si in idx_holes:
+            # bottom tier
+            tier_r[si] = _get_tier_reward(0, num_tiers, gamma, delta)
+        else:
+            # middle tiers, according to bin
+            assert state_to_bin_idx[s] < num_tiers - 1
+            tier_r[si] = _get_tier_reward(state_to_bin_idx[s]+1, num_tiers, gamma, delta)  # +1 to allow the bottom tier
+    return tier_r
+
+
 def make_distance_based_tier_reward(env, num_tiers, gamma, delta):
     """
     given a tabular MDP, return a reward function that is tiered
@@ -33,12 +91,6 @@ def make_distance_based_tier_reward(env, num_tiers, gamma, delta):
     NOTE: this assumes there is only a single goal state
     """
     # find the distances of every state to the goal 
-    def get_l1_distance(a, b):
-        """
-        L1 distance of two msdm states
-        a, b: both are frozendict({'x': x, 'y': y})
-        """
-        return abs(a['x'] - b['x']) + abs(a['y'] - b['y'])
     assert len(env.absorbing_states) == 1, "Only one goal state is supported"
     goal_state = env.absorbing_states[0]  # assume only one goal
     idx_goal = env.state_index[goal_state]
@@ -91,7 +143,7 @@ if __name__ == "__main__":
         print(_get_tier_reward(i, total_tiers, 0.9))
 
     from pathlib import Path
-    from reward.environments import make_single_goal_square_grid
+    from reward.environments import make_single_goal_square_grid, make_frozen_lake
     from reward.environments.plot import plot_grid_reward
     discount = 0.95
     num_side_states = 9
@@ -123,6 +175,29 @@ if __name__ == "__main__":
 
     plot_grid_reward(
         tier_env,
-        plot_name_prefix='',
+        plot_name_prefix='debug_grid',
         results_dir=Path('./results/'),
+    )
+
+    env = make_frozen_lake(
+        discount_rate=discount,
+        goal_reward=1,
+        step_cost=-1,
+        hole_penalty=-1,
+    )
+    tier_r = make_frozen_lake_tier_reward(
+        env, 8, discount, 0.1,
+    )
+    tier_env = make_frozen_lake(
+        discount_rate=discount,
+        goal_reward=None,
+        step_cost=None,
+        hole_penalty=None,
+        custom_rewards=tier_r,
+    )
+    plot_grid_reward(
+        tier_env,
+        plot_name_prefix='debug_frozen_lake',
+        results_dir=Path('./results/'),
+        reward_vec=tier_r,
     )

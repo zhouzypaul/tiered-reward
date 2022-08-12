@@ -5,7 +5,8 @@ import numpy as np
 
 from reward.environments import make_one_dim_chain, make_single_goal_square_grid, make_frozen_lake, make_russell_norvig_grid
 from reward.agents import QLearning, RMaxAgent, run_learning, run_multiprocessing_learning
-from reward.tier.reward_functions import potential_based_shaping_reward, make_distance_based_tier_reward, _get_tier_reward
+from reward.tier.reward_functions import potential_based_shaping_reward, \
+    make_distance_based_tier_reward, make_frozen_lake_tier_reward, _get_tier_reward
 from reward.tier.plot import compare_goal_hitting_stat_with_different_tiers
 from reward.utils import create_log_dir
 from reward import kvlogger
@@ -127,13 +128,19 @@ def make_env(env_name, num_tiers, discount, delta):
             step_cost=-1,
             hole_penalty=-1,
         )
+        tier_r = make_frozen_lake_tier_reward(
+            env,
+            num_tiers=num_tiers,
+            gamma=discount,
+            delta=delta,
+        )
         tier_env = make_frozen_lake(
             discount_rate=discount,
-            goal_reward=_get_tier_reward(tier=2, num_total_tiers=3, gamma=discount),
-            step_cost=_get_tier_reward(tier=1, num_total_tiers=3, gamma=discount),
-            hole_penalty=_get_tier_reward(tier=0, num_total_tiers=3, gamma=discount),
+            goal_reward=None,
+            step_cost=None,
+            hole_penalty=None,
+            custom_rewards=tier_r
         )
-        tier_r = tier_env.reward_vector
     
     elif env_name == "rn_grid":
         env = make_russell_norvig_grid(

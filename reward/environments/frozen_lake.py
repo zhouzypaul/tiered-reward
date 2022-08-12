@@ -18,6 +18,7 @@ class FrozenLake(SlipperyGrid):
                 feature_rewards=None, 
                 step_cost=0, 
                 discount_rate=1, 
+                custom_rewards=None
         ):
         if tile_array is None:
             tile_array = [
@@ -40,11 +41,11 @@ class FrozenLake(SlipperyGrid):
             step_cost=step_cost,
             success_prob=1/3,
             discount_rate=discount_rate,
-            custom_rewards=None,
+            custom_rewards=custom_rewards,
         )
 
 
-def make_frozen_lake(discount_rate, goal_reward, step_cost, hole_penalty):
+def make_frozen_lake(discount_rate, goal_reward, step_cost, hole_penalty, custom_rewards=None):
     gw = FrozenLake(
         feature_rewards={
             'g': goal_reward,
@@ -52,6 +53,7 @@ def make_frozen_lake(discount_rate, goal_reward, step_cost, hole_penalty):
         },
         step_cost=step_cost,
         discount_rate=discount_rate,
+        custom_rewards=custom_rewards,
     )
     return gw
 
