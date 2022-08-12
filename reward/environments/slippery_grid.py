@@ -18,6 +18,7 @@ class SlipperyGrid(GridWorld):
     """
     def __init__(self,
                 tile_array=None,
+                tile_distance=None,
                 feature_rewards=None,
                 absorbing_features=("g", "x"),
                 wall_features=("#",),
@@ -40,11 +41,14 @@ class SlipperyGrid(GridWorld):
         absorbingStates = set()
         initStates = set()
         locFeatures = {}
+        locDistances = {}
         for y_, row in enumerate(elementArray):
             y = len(elementArray) - y_ - 1
             for x, elements in enumerate(row):
                 s = frozendict({'x': x, 'y': y})
                 states.append(s)
+                if tile_distance:
+                    locDistances[s] = tile_distance[y_][x]
                 if len(elements) > 0:
                     f = elements[0]
                     locFeatures[s] = f
@@ -72,6 +76,7 @@ class SlipperyGrid(GridWorld):
         self._absorbingStates = sorted(absorbingStates, key=hash_state)
         self._walls = sorted(walls, key=hash_state)
         self._locFeatures = locFeatures
+        self.location_distances = locDistances
         self.success_prob = success_prob
         if feature_rewards is None:
             feature_rewards = {'g': 0}

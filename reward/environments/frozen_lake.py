@@ -1,4 +1,4 @@
-from msdm.core.distributions.dictdistribution import FiniteDistribution
+import numpy as np
 
 from reward.environments.slippery_grid import SlipperyGrid
 
@@ -31,8 +31,21 @@ class FrozenLake(SlipperyGrid):
                 '.h..h.h.',
                 '...h...g',
             ]
+        # hand-code the distance function of each state to goal
+        frozen_lake_location_distance = [
+            [14, 13, 12, 11, 10, 9, 8, 7], 
+            [13, 12, 11, 10, 9, 8, 7, 6], 
+            [12, 11, 10, np.inf, 8, 7, 6, 5],
+            [11, 10, 9, 8, 7, np.inf, 5, 4],
+            [12, 11, 10, np.inf, 6, 5, 4, 3],
+            [13, np.inf, np.inf, 6, 5, 4, np.inf, 2],
+            [12, np.inf, 8, 7, np.inf, 3, np.inf, 1],
+            [11, 10, 9, np.inf, 3, 2, 1, 0],
+        ]
+
         super().__init__(
             tile_array=tile_array,
+            tile_distance=frozen_lake_location_distance,
             feature_rewards=feature_rewards,
             absorbing_features=('g', 'h'),
             wall_features=(),
@@ -63,6 +76,8 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     gw = make_frozen_lake(discount_rate=0.9, goal_reward=1, step_cost=-0.1, hole_penalty=-1)
     gw.plot()
+
+    print(gw.location_distances)
 
     from msdm.algorithms import ValueIteration
     vi = ValueIteration()

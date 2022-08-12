@@ -53,16 +53,14 @@ def make_frozen_lake_tier_reward(env, num_tiers, gamma, delta):
     # find the goal state
     goal, idx_goal = _find_feature_index('g')
     assert len(idx_goal) == 1
-    goal_state = goal[0]
     # bin according to distance
     terminal_states = holes + goal
-    state_to_distance = {s: get_l1_distance(s, goal_state) for s in env.state_list if s not in terminal_states}
-    distances = np.array(list(state_to_distance.values()))
-    bined_distance = np.digitize(distances, np.linspace(np.max(distances), 0, num_tiers-2))  # indices of the bins to which each value in input array belongs
-    if num_tiers == 3:
-        # a small hack to prevent there being two bins
-        bined_distance = np.zeros_like(bined_distance)
-    state_to_bin_idx = {s: bined_distance[i] for i, s in enumerate(state_to_distance.keys())}
+    state_to_distance = {s: env.location_distances[s] for s in env.state_list if s not in terminal_states}
+    state_to_distance = {k: v for k, v in sorted(state_to_distance.items(), key=lambda item: item[1])}  # sort based on distance
+    num_per_bin = math.ceil(len(state_to_distance) / (num_tiers-2))
+    state_to_bin_idx = {}
+    for i, (s, dist) in enumerate(state_to_distance.items()):
+        state_to_bin_idx[s] = i // num_per_bin
 
     # build the tiered reward
     tier_r = np.zeros(len(env.state_list))
@@ -186,7 +184,7 @@ if __name__ == "__main__":
         hole_penalty=-1,
     )
     tier_r = make_frozen_lake_tier_reward(
-        env, 8, discount, 0.1,
+        env, 4, discount, 0.1,
     )
     tier_env = make_frozen_lake(
         discount_rate=discount,
