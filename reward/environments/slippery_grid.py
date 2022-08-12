@@ -138,9 +138,9 @@ class SlipperyGrid(GridWorld):
     def reward(self, s, a, ns) -> float:
         if self.custom_rewards is None:
             # use default rewards
-            if self.is_terminal(ns):
-                return self._featureRewards['g']
             f = self._locFeatures.get(ns, "")
+            if self.is_terminal(ns):
+                assert f in self.absorbing_features
             return self._featureRewards.get(f, self.step_cost)
         else:
             # use custom rewards
