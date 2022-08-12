@@ -9,11 +9,6 @@ from msdm.core.problemclasses.mdp import TabularMarkovDecisionProcess
 def _get_tier_reward(tier, num_total_tiers, gamma, delta=0.1):
     """
     what's the reward for the i-the tier
-    tier          reward
-    0             0
-    1             H^0
-    2             H^1 + delta
-    k             H^(k-1) + (H^k-2 +...+ H^0)) * delta
     """
     h = 1 / (1 - gamma)
     if tier >= num_total_tiers - 1:
@@ -54,10 +49,9 @@ def make_wall_grid_tier_reward(env, num_tiers, gamma, delta):
     # bin according to distance
     forbidden_states = lavas + goal + walls 
     state_to_distance = {s: env.location_distances[s] for s in env.state_list if s not in forbidden_states}
-    state_to_distance = {k: v for k, v in sorted(state_to_distance.items(), key=lambda item: item[1])}  # sort according to distance
     num_per_bin = math.ceil(len(state_to_distance) / (num_tiers-2))
     state_to_bin_idx = {}
-    for i, (s, dist) in enumerate(state_to_distance.items()):
+    for i, (s, dist) in enumerate(sorted(state_to_distance.items(), key=lambda item: item[1], reverse=True)):
         state_to_bin_idx[s] = i // num_per_bin
 
     # build the tier rewards
@@ -98,10 +92,9 @@ def make_frozen_lake_tier_reward(env, num_tiers, gamma, delta):
     # bin according to distance
     terminal_states = holes + goal
     state_to_distance = {s: env.location_distances[s] for s in env.state_list if s not in terminal_states}
-    state_to_distance = {k: v for k, v in sorted(state_to_distance.items(), key=lambda item: item[1])}  # sort based on distance
     num_per_bin = math.ceil(len(state_to_distance) / (num_tiers-2))
     state_to_bin_idx = {}
-    for i, (s, dist) in enumerate(state_to_distance.items()):
+    for i, (s, dist) in enumerate(sorted(state_to_distance.items(), key=lambda item: item[1], reverse=True)):
         state_to_bin_idx[s] = i // num_per_bin
 
     # build the tiered reward
