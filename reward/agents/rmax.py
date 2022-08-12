@@ -25,6 +25,9 @@ class RMax():
         self.prev_state = None
         self.prev_action = None
 
+         # this many iterations of value iteration ensures convergence
+        self.num_value_iter = math.ceil(np.log(1/(self.epsilon_one * (1 - self.gamma))) / (1 - self.gamma))
+
         self.rmax = max_reward
         self.s_a_threshold = s_a_threshold
         self.custom_q_init = custom_q_init 
@@ -35,16 +38,16 @@ class RMax():
         Summary:
             Resets the agent back to its tabular asa config.
         '''
-        self.rewards = defaultdict(lambda : defaultdict(lambda: 0.)) # S --> A --> reward
-        self.transitions = defaultdict(lambda : defaultdict(lambda : defaultdict(int))) # S --> A --> S' --> counts
-        self.s_a_counts = defaultdict(lambda : defaultdict(int)) # S --> A --> count n(s, a)
+        self.rewards = np.zeros((len(self.states), len(self.actions)))  # S --> A --> reward
+        self.transitions = np.zeros((len(self.states), len(self.actions), len(self.states)))  # S --> A --> S' --> n
+        self.s_a_counts = np.zeros((len(self.states), len(self.actions)))
         self.prev_state = None
         self.prev_action = None
 
         if self.custom_q_init:
             self.q_func = self.custom_q_init
         else:
-            self.q_func = defaultdict(lambda: defaultdict(lambda: self.rmax * 1/(1-self.gamma)))
+            self.q_func = np.ones((len(self.states), len(self.actions))) * self.rmax * 1/(1-self.gamma)
 
     def act(self, state, reward):
         # Compute best action by argmaxing over Q values of all possible s,a pairs
@@ -78,12 +81,21 @@ class RMax():
 
                 if self.s_a_counts[state][action] == self.s_a_threshold:
                     # Start updating Q values for subsequent states
-                    lim = math.ceil(np.log(1/(self.epsilon_one * (1 - self.gamma))) / (1 - self.gamma))
-                    for _ in range(lim):  # this many iterations of value iteration ensures convergence
-                        for curr_state in self.rewards.keys():
-                            for curr_action in self.actions:
-                                if self.s_a_counts[curr_state][curr_action] >= self.s_a_threshold:
-                                    self.q_func[curr_state][curr_action] = self._get_reward(curr_state, curr_action) + (self.gamma * self.get_next_state_value(curr_state, curr_action))
+                    for _ in range(self.num_value_iter): 
+                        self.value_iteration()
+
+    def value_iteration(self):
+        '''
+        Do one iteration of value iteration to compute the q values
+        Only update the (s, a) pairs that have enough experiences seen
+        Q(s, a) = R(s, a) + gamma * \sum_s' T(s, a, s') * max_a' Q(s', a')
+        '''
+        empirical_reward_mat = self.rewards / self.s_a_threshold
+        empirical_transition_mat = self.transitions / self.s_a_counts[:, :, None]
+        v = np.max(self.q_func, axis=-1)
+        new_q = empirical_reward_mat + self.gamma * np.einsum("san,n->sa", empirical_transition_mat, v)
+        mask = self.s_a_counts >= self.s_a_threshold
+        self.q_func[mask] = new_q[mask]
 
     def get_next_state_value(self, state, action):
         '''
@@ -93,8 +105,9 @@ class RMax():
         Returns:
             empirical transition probability 
         '''
-        return np.sum([(self._get_transition(state, action, next_state) * self.get_max_q_value(next_state)) for next_state in self.states])
-
+        empirical_transition_mat = self.transitions / self.s_a_counts[:, :, None]
+        v = np.max(self.q_func, axis=-1)
+        return np.einsum("san,n->sa", empirical_transition_mat, v)[state, action]
 
     def get_value(self, state):
         '''
@@ -113,15 +126,12 @@ class RMax():
             (tuple) --> (float, str): where the float is the Qval, str is the action.
         '''
         # Grab random initial action in case all equal
-        best_action = random.choice(self.actions)
-        max_q_val = self.get_q_value(state, best_action)
+        if np.all(self.q_func[state] == self.q_func[state, 0]):
+            best_action = random.choice(self.actions)
+        else:
+            best_action =np.argmax(self.q_func[state])
+        max_q_val = self.q_func[state][best_action]
 
-        # Find best action (action w/ current max predicted Q value) 
-        for action in self.actions:
-            q_s_a = self.get_q_value(state, action)
-            if q_s_a > max_q_val:
-                max_q_val = q_s_a
-                best_action = action
         return max_q_val, best_action
 
     def get_max_q_action(self, state):
@@ -291,7 +301,7 @@ if __name__ == "__main__":
 
     gamma = 0.9
     # env = make_one_dim_chain(num_states=10, goal_reward=1, step_reward=-1, discount_rate=gamma, success_rate=0.8)
-    mdp = make_single_goal_square_grid(num_side_states=6, discount_rate=gamma, success_prob=0.8, step_cost=-1, goal_reward=10)
+    mdp = make_single_goal_square_grid(num_side_states=4, discount_rate=gamma, success_prob=0.8, step_cost=-1, goal_reward=10)
     agent = RMax(states=range(len(mdp.state_list)), actions=range(len(mdp.action_list)), gamma=gamma, max_reward=10)
 
     state_to_index = lambda s: mdp.state_index[s]
