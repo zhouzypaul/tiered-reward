@@ -19,13 +19,13 @@ def plot_grid_reward(gw, plot_name_prefix, results_dir, reward_vec=None, plot_ov
     # handle reward range
     if len(reward_vec) == 0:
         return gw_plot
-    rmax_abs = abs(max(reward_vec))
+    rmax_abs = max(abs(reward_vec))
     reward_range = [-rmax_abs, rmax_abs]
     rmin, rmax = reward_range
 
     # choose colors
     color_range = plt.get_cmap('bwr_r')
-    color_norm = colors.PowerNorm(gamma=0.5, vmin=rmin, vmax=rmax)
+    color_norm = colors.SymLogNorm(linthresh=0.1, vmin=rmin, vmax=rmax)
     color_value_map = cmx.ScalarMappable(norm=color_norm, cmap=color_range)
     color_value_func = lambda v: color_value_map.to_rgba(v)
 
