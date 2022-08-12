@@ -64,9 +64,9 @@ def make_agent(agent_name, seed, num_steps):
 
 def make_env(env_name, num_tiers, discount, delta):
     """
-    create four environments
+    create three environments
     returns:
-        env, tier_env, value_based_shapping_env, tier_based_shaping_env
+        env, tier_env, tier_based_shaping_env
     """
     if env_name == "chain":
         num_chain_states = 9
@@ -153,13 +153,12 @@ def make_env(env_name, num_tiers, discount, delta):
     else:
         raise NotImplementedError
 
-    pbs_env = potential_based_shaping_reward(env)
     tier_pbs_env = potential_based_shaping_reward(
         env,
         shaping_func=lambda s: tier_r[env.state_index[s]]
     )
 
-    return env, tier_env, pbs_env, tier_pbs_env
+    return env, tier_env, tier_pbs_env
 
 
 if __name__ == "__main__":
@@ -191,21 +190,18 @@ if __name__ == "__main__":
         create_log_dir(saving_dir, remove_existing=True)
 
         # make env
-        env, tier_env, pbs_env, tier_pbs_env = make_env(args.env, tier, args.gamma, args.delta)
+        env, tier_env, tier_pbs_env = make_env(args.env, tier, args.gamma, args.delta)
         
         # training
         results = train_on_env(env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
         print('original reward')
-        print([res.NumGoalsHit for res in results])
+        print([res.TimeAtGoal for res in results])
         tiered_results = train_on_env(tier_env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
         print('tiered reward')
-        print([res.NumGoalsHit for res in tiered_results])
-        pbs_results = train_on_env(pbs_env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
-        print('potential-based shaping reward')
-        print([res.NumGoalsHit for res in pbs_results])
+        print([res.TimeAtGoal for res in tiered_results])
         tiered_pbs_results = train_on_env(tier_pbs_env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
         print('Tier-based shaping reward')
-        print([res.NumGoalsHit for res in tiered_pbs_results])
+        print([res.TimeAtGoal for res in tiered_pbs_results])
 
         # log results
         def log_results(result, reward_type):
@@ -223,7 +219,6 @@ if __name__ == "__main__":
         kvlogger.configure(saving_dir, format_strs=['csv'], log_suffix='')
         log_results(results, 'Original')
         log_results(tiered_results, 'Tiered')
-        log_results(pbs_results, 'Potential Based Shaping')
         log_results(tiered_pbs_results, 'Tier Based Shaping')
 
     # plot results
