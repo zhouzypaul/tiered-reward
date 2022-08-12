@@ -6,7 +6,7 @@ from msdm.algorithms import ValueIteration
 from msdm.core.problemclasses.mdp import TabularMarkovDecisionProcess
 
 
-def _get_tier_reward(tier, gamma, delta=0.1):
+def _get_tier_reward(tier, num_total_tiers, gamma, delta=0.1):
     """
     what's the reward for the i-the tier
     tier          reward
@@ -16,31 +16,10 @@ def _get_tier_reward(tier, gamma, delta=0.1):
     k             H^(k-1) + (H^k-2 +...+ H^0)) * delta
     """
     h = 1 / (1 - gamma)
-    if tier == 0:
+    if tier >= num_total_tiers - 1:
         return 0
-    elif tier == 1:
-        return 1
     else:
-        return h ** (tier-1) + delta * (h **(tier-1) - 1) / (h - 1)
-
-
-def make_chain_tier_reward(num_states, num_tiers, gamma=0.95, delta=0.1):
-    """
-    return a numpy array of length num_states
-    NOTE: the goal has to be the single state that's the highest tier
-    """
-    r = np.zeros(num_states)
-    states_per_tier = math.ceil((num_states-1) / (num_tiers-1))
-    # final tier
-    r[-1] = _get_tier_reward(num_tiers-1, gamma, delta)
-    # other tiers
-    for i in range(num_tiers-1):
-        for j in range(states_per_tier):
-            idx = i * states_per_tier + j
-            if idx >= num_states-1:
-                break
-            r[idx] = _get_tier_reward(i, gamma, delta)
-    return r
+        return _get_tier_reward(tier+1, num_total_tiers, gamma, delta) * h - delta
 
 
 def make_distance_based_tier_reward(env, num_tiers, gamma, delta):
@@ -75,10 +54,10 @@ def make_distance_based_tier_reward(env, num_tiers, gamma, delta):
     tier_r = np.zeros(len(env.state_list))
     for s, si in env.state_index.items():
         if si == idx_goal:
-            tier_r[si] = _get_tier_reward(num_tiers-1, gamma, delta)
+            tier_r[si] = _get_tier_reward(num_tiers-1, num_tiers, gamma, delta)
         else:
             assert state_to_bin_idx[s] < num_tiers - 1
-            tier_r[si] = _get_tier_reward(state_to_bin_idx[s], gamma, delta)
+            tier_r[si] = _get_tier_reward(state_to_bin_idx[s], num_tiers, gamma, delta)
     return tier_r
 
 
@@ -107,8 +86,9 @@ def potential_based_shaping_reward(env: TabularMarkovDecisionProcess, shaping_fu
 
 if __name__ == "__main__":
     # testing this script
-    r = make_chain_tier_reward(60, 7)
-    print(r)
+    total_tiers = 5
+    for i in range(total_tiers):
+        print(_get_tier_reward(i, total_tiers, 0.9))
 
     from pathlib import Path
     from reward.environments import make_single_goal_square_grid

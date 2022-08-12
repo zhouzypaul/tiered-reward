@@ -43,7 +43,7 @@ def make_agent(agent_name, seed, num_steps):
     """
     create the learning agent
     """
-    optimistic_value = 1e10
+    optimistic_value = 0.
     if agent_name == 'qlearning':
         agent = QLearning(
             num_steps=num_steps,
@@ -69,7 +69,7 @@ def make_env(env_name, num_tiers, discount, delta):
         env, tier_env, tier_based_shaping_env
     """
     if env_name == "chain":
-        num_chain_states = 9
+        num_chain_states = 90
         env = make_one_dim_chain(
             num_states=num_chain_states,
             discount_rate=discount,
@@ -95,7 +95,7 @@ def make_env(env_name, num_tiers, discount, delta):
         )
     
     elif env_name == 'grid':
-        num_side_states = 9
+        num_side_states = 15
         env = make_single_goal_square_grid(
             num_side_states=num_side_states,
             discount_rate=discount,
@@ -129,9 +129,9 @@ def make_env(env_name, num_tiers, discount, delta):
         )
         tier_env = make_frozen_lake(
             discount_rate=discount,
-            goal_reward=_get_tier_reward(tier=2, gamma=discount),
-            step_cost=_get_tier_reward(tier=1, gamma=discount),
-            hole_penalty=_get_tier_reward(tier=0, gamma=discount),
+            goal_reward=_get_tier_reward(tier=2, num_total_tiers=3, gamma=discount),
+            step_cost=_get_tier_reward(tier=1, num_total_tiers=3, gamma=discount),
+            hole_penalty=_get_tier_reward(tier=0, num_total_tiers=3, gamma=discount),
         )
         tier_r = tier_env.reward_vector
     
