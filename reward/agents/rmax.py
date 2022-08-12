@@ -1,3 +1,4 @@
+import math
 import random
 from collections import defaultdict
 
@@ -15,7 +16,8 @@ class RMax():
     implementation from simple_rl by Dave Abel 
     '''
 
-    def __init__(self, actions, gamma=0.95, s_a_threshold=2, epsilon_one=0.99, max_reward=1.0, custom_q_init=None):
+    def __init__(self, states, actions, gamma=0.95, s_a_threshold=2, epsilon_one=0.99, max_reward=1.0, custom_q_init=None):
+        self.states = list(states)
         self.actions = list(actions) # Just in case we're given a numpy array (like from Atari).
         self.gamma = gamma
         self.epsilon_one = epsilon_one
@@ -33,24 +35,23 @@ class RMax():
         Summary:
             Resets the agent back to its tabular asa config.
         '''
-        self.rewards = defaultdict(lambda : defaultdict(list)) # S --> A --> reward
+        self.rewards = defaultdict(lambda : defaultdict(lambda: 0.)) # S --> A --> reward
         self.transitions = defaultdict(lambda : defaultdict(lambda : defaultdict(int))) # S --> A --> S' --> counts
-        self.r_s_a_counts = defaultdict(lambda : defaultdict(int)) # S --> A --> #rs
-        self.t_s_a_counts = defaultdict(lambda : defaultdict(int)) # S --> A --> #ts
+        self.s_a_counts = defaultdict(lambda : defaultdict(int)) # S --> A --> count n(s, a)
         self.prev_state = None
         self.prev_action = None
 
         if self.custom_q_init:
             self.q_func = self.custom_q_init
         else:
-            self.q_func = defaultdict(lambda: defaultdict(lambda: self.rmax))
+            self.q_func = defaultdict(lambda: defaultdict(lambda: self.rmax * 1/(1-self.gamma)))
 
     def act(self, state, reward):
-        # Update given s, a, r, s' : self.prev_state, self.prev_action, reward, state
-        self.update(self.prev_state, self.prev_action, reward, state)
-
         # Compute best action by argmaxing over Q values of all possible s,a pairs
         action = self.get_max_q_action(state)
+
+        # Update given s, a, r, s' : self.prev_state, self.prev_action, reward, state
+        self.update(self.prev_state, self.prev_action, reward, state)
 
         # Update pointers.
         self.prev_action = action
@@ -69,23 +70,22 @@ class RMax():
             Updates T and R.
         '''
         if state != None and action != None:
-            if self.r_s_a_counts[state][action] <= self.s_a_threshold or self.t_s_a_counts[state][action] <= self.s_a_threshold:
+            if self.s_a_counts[state][action] < self.s_a_threshold:
                 # Add new data points if we haven't seen this s-a enough.
-                self.rewards[state][action] += [reward]
-                self.r_s_a_counts[state][action] += 1
+                self.rewards[state][action] += reward
+                self.s_a_counts[state][action] += 1
                 self.transitions[state][action][next_state] += 1
-                self.t_s_a_counts[state][action] += 1
 
-                if self.r_s_a_counts[state][action] == self.s_a_threshold:
+                if self.s_a_counts[state][action] == self.s_a_threshold:
                     # Start updating Q values for subsequent states
-                    lim = int(np.log(1/(self.epsilon_one * (1 - self.gamma))) / (1 - self.gamma))
-                    for i in range(1, lim):
+                    lim = math.ceil(np.log(1/(self.epsilon_one * (1 - self.gamma))) / (1 - self.gamma))
+                    for _ in range(lim):  # this many iterations of value iteration ensures convergence
                         for curr_state in self.rewards.keys():
                             for curr_action in self.actions:
-                                if self.r_s_a_counts[curr_state][curr_action] >= self.s_a_threshold:
-                                    self.q_func[curr_state][curr_action] = self._get_reward(curr_state, curr_action) + (self.gamma * self.get_transition_q_value(curr_state, curr_action))
+                                if self.s_a_counts[curr_state][curr_action] >= self.s_a_threshold:
+                                    self.q_func[curr_state][curr_action] = self._get_reward(curr_state, curr_action) + (self.gamma * self.get_next_state_value(curr_state, curr_action))
 
-    def get_transition_q_value(self, state, action):
+    def get_next_state_value(self, state, action):
         '''
         Args: 
             state
@@ -93,7 +93,7 @@ class RMax():
         Returns:
             empirical transition probability 
         '''
-        return sum([(self._get_transition(state, action, next_state) * self.get_max_q_value(next_state)) for next_state in self.q_func.keys()])
+        return np.sum([(self._get_transition(state, action, next_state) * self.get_max_q_value(next_state)) for next_state in self.states])
 
 
     def get_value(self, state):
@@ -164,10 +164,9 @@ class RMax():
             for this s,a pair, return self.rmax. Otherwise, return the MLE.
         '''
 
-        if self.r_s_a_counts[state][action] >= self.s_a_threshold:
+        if self.s_a_counts[state][action] >= self.s_a_threshold:
             # Compute MLE if we've seen this s,a pair enough.
-            rewards_s_a = self.rewards[state][action]
-            return float(sum(rewards_s_a)) / len(rewards_s_a)
+            return self.rewards[state][action] / self.s_a_threshold
         else:
             # Otherwise return rmax.
             return self.rmax
@@ -182,7 +181,7 @@ class RMax():
                 Empirical probability of transition n(s,a,s')/n(s,a) 
         '''
 
-        return self.transitions[state][action][next_state] / self.t_s_a_counts[state][action]
+        return self.transitions[state][action][next_state] / self.s_a_counts[state][action]
 
 
 class RMaxAgent(Learns):
@@ -209,6 +208,7 @@ class RMaxAgent(Learns):
         states as keys and action-value dictionaries as values."""
         # create agent
         agent = RMax(
+            states=range(len(mdp.state_list)),
             actions=range(len(mdp.action_list)),
             gamma=mdp.discount_rate,
             s_a_threshold=2,
@@ -291,8 +291,8 @@ if __name__ == "__main__":
 
     gamma = 0.9
     # env = make_one_dim_chain(num_states=10, goal_reward=1, step_reward=-1, discount_rate=gamma, success_rate=0.8)
-    mdp = make_single_goal_square_grid(num_side_states=4, discount_rate=gamma, success_prob=0.8, step_cost=-1, goal_reward=10)
-    agent = RMax(actions=range(len(mdp.action_list)), gamma=gamma, max_reward=10)
+    mdp = make_single_goal_square_grid(num_side_states=6, discount_rate=gamma, success_prob=0.8, step_cost=-1, goal_reward=10)
+    agent = RMax(states=range(len(mdp.state_list)), actions=range(len(mdp.action_list)), gamma=gamma, max_reward=10)
 
     state_to_index = lambda s: mdp.state_index[s]
     index_to_action = lambda ai: {ai: a for a, ai in mdp.action_index.items()}[ai]
