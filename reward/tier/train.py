@@ -3,10 +3,11 @@ import argparse
 
 import numpy as np
 
-from reward.environments import make_one_dim_chain, make_single_goal_square_grid, make_frozen_lake, make_russell_norvig_grid
+from reward.environments import make_one_dim_chain, make_single_goal_square_grid, \
+    make_frozen_lake, make_russell_norvig_grid, make_wall_grid
 from reward.agents import QLearning, RMaxAgent, run_learning, run_multiprocessing_learning
 from reward.tier.reward_functions import potential_based_shaping_reward, \
-    make_distance_based_tier_reward, make_frozen_lake_tier_reward, _get_tier_reward
+    make_distance_based_tier_reward, make_frozen_lake_tier_reward, make_wall_grid_tier_reward
 from reward.tier.plot import compare_goal_hitting_stat_with_different_tiers
 from reward.utils import create_log_dir
 from reward import kvlogger
@@ -156,6 +157,26 @@ def make_env(env_name, num_tiers, discount, delta):
             step_cost=-0.04,
         )
         tier_r = tier_env.reward_vector
+    
+    elif env_name == "wall_grid":
+        env = make_wall_grid(
+            discount_rate=discount,
+            success_prob=0.8,
+            goal_reward=1,
+            step_cost=-1,
+            lava_penalty=-1,
+        )
+        tier_r = make_wall_grid_tier_reward(
+            env, num_tiers, discount, delta
+        )
+        tier_env = make_wall_grid(
+            discount_rate=discount,
+            success_prob=0.8,
+            goal_reward=None,
+            step_cost=None,
+            lava_penalty=None,
+            custom_rewards=tier_r,
+        )
 
     else:
         raise NotImplementedError
@@ -171,7 +192,7 @@ def make_env(env_name, num_tiers, discount, delta):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=str, default="chain",
-                        choices=["chain", "grid", "frozen_lake", "rn_grid"],)
+                        choices=["chain", "grid", "frozen_lake", "rn_grid", "wall_grid"],)
     parser.add_argument('--agent', type=str, default='qlearning',
                         choices=['qlearning', 'rmax'])
     parser.add_argument("--steps", type=int, default=100_000)

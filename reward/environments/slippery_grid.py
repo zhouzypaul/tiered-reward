@@ -120,9 +120,9 @@ class SlipperyGrid(GridWorld):
                 slip_s1 = frozendict({'x': x, 'y': y-1})
                 slip_s2 = frozendict({'x': x, 'y': y+1})
             
-            if slip_s1 not in self._states:
+            if slip_s1 not in self._states or slip_s1 in self.walls:
                 slip_s1 = s
-            if slip_s2 not in self._states:
+            if slip_s2 not in self._states or slip_s2 in self.walls:
                 slip_s2 = s
 
             bdist_dict = defaultdict(float)
