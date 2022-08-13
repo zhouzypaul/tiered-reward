@@ -24,12 +24,22 @@ class WallGrid(SlipperyGrid):
                 '......g....',
             ]
         # hand-code the distance function of each state to goal
-        wall_grid_location_distance = [
+        wall_grid_start_state_distance = [
+            [12, 11, 10, 9, 8, 7, np.nan, 3, 2, 1, 0], 
+            [11, 10, 9, 8 ,7, 6, 5, 4, np.nan, np.nan, np.nan],
+            [np.inf, np.inf, np.inf, np.inf, 8, 7, 6, 5, 6, np.inf, np.nan],
+            [13, 12, 11, 10, 9, 8, np.nan, np.nan, 7, 8, 9],
+            [14, 13, 12, 11, 10, 9, 10, 9, 8, 9, 10],
+        ]
+        wall_grid_goal_distance = [
             [10, 9, 8, 7, 6, 5, np.nan, 7, 8, 9, 10],
             [9, 8, 7, 6, 5, 4, 5, 6, np.nan, np.nan, np.nan],
             [np.inf, np.inf, np.inf, np.inf, 4, 3, 4, 5, 4, np.inf, np.nan], 
             [7, 6, 5, 4, 3, 2, np.nan, np.nan, 3, 4, 5], 
             [6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4],
+        ]
+        wall_grid_location_distance = [
+            np.add(a, b) for a, b in zip(wall_grid_goal_distance, wall_grid_start_state_distance)
         ]
 
         super().__init__(
