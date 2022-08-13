@@ -32,7 +32,7 @@ class FrozenLake(SlipperyGrid):
                 '...h...g',
             ]
         # hand-code the distance function of each state to goal
-        frozen_lake_location_distance = [
+        frozen_lake_goal_distance = [
             [14, 13, 12, 11, 10, 9, 8, 7], 
             [13, 12, 11, 10, 9, 8, 7, 6], 
             [12, 11, 10, np.inf, 8, 7, 6, 5],
@@ -42,6 +42,20 @@ class FrozenLake(SlipperyGrid):
             [12, np.inf, 8, 7, np.inf, 3, np.inf, 1],
             [11, 10, 9, np.inf, 3, 2, 1, 0],
         ]
+        frozen_lake_start_state_distance = [
+            [0, 1, 2, 3, 4, 5, 6, 7],
+            [1, 2, 3, 4, 5, 6, 7, 8],
+            [2, 3, 4, np.inf, 6, 7, 8, 9],
+            [3, 4, 5, 6, 7, np.inf, 9, 10],
+            [4, 5, 6, np.inf, 8, 9, 10 , 11],
+            [5, np.inf, np.inf, 10, 9, 10, np.inf, 12],
+            [6, np.inf, 10, 11, np.inf, 10, np.inf, 13],
+            [7, 8, 9, np.inf, 13, 12, 13, 14],
+        ]
+        frozen_lake_location_distance = [
+            np.add(a, b) for a, b in zip(frozen_lake_goal_distance, frozen_lake_start_state_distance)
+        ]
+        
 
         super().__init__(
             tile_array=tile_array,
