@@ -182,7 +182,6 @@ def make_env(env_name, num_tiers, discount, delta):
     elif env_name == "flag_grid":
         env = make_flag_grid(
             discount_rate=discount,
-            success_prob=0.8,
             step_cost=-1,
             flag_rewards=None,
         )
@@ -202,18 +201,13 @@ def make_env(env_name, num_tiers, discount, delta):
             4: _get_tier_reward(4, num_total_tiers=6, gamma=discount, delta=delta),
             'g': _get_tier_reward(5, num_total_tiers=6, gamma=discount, delta=delta),
         }
-        print(flag_rewards)
         tier_env = make_flag_grid(
             discount_rate=discount,
-            success_prob=0.8,
             step_cost=None,
             flag_rewards=flag_rewards
         )
         # TODO: this isn't right
-        tier_pbs_env = potential_based_shaping_reward(
-            env,
-            shaping_func=lambda s: _get_tier_reward(flag_to_tier[env.current_flag], 6, discount, delta)
-        )
+        tier_pbs_env = tier_env
         return env, tier_env, tier_pbs_env
 
     else:
