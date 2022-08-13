@@ -5,3 +5,4 @@ from .puddle_world import make_puddle_world
 from .frozen_lake import make_frozen_lake
 from .slippery_grid import make_slippery_grid, make_single_goal_square_grid
 from .wall_grid import make_wall_grid
+from .flag_grid import make_flag_grid

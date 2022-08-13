@@ -4,10 +4,11 @@ import argparse
 import numpy as np
 
 from reward.environments import make_one_dim_chain, make_single_goal_square_grid, \
-    make_frozen_lake, make_russell_norvig_grid, make_wall_grid
+    make_frozen_lake, make_russell_norvig_grid, make_wall_grid, make_flag_grid
 from reward.agents import QLearning, RMaxAgent, run_learning, run_multiprocessing_learning
 from reward.tier.reward_functions import potential_based_shaping_reward, \
-    make_distance_based_tier_reward, make_frozen_lake_tier_reward, make_wall_grid_tier_reward
+    make_distance_based_tier_reward, make_frozen_lake_tier_reward, make_wall_grid_tier_reward, \
+    _get_tier_reward
 from reward.tier.plot import compare_goal_hitting_stat_with_different_tiers
 from reward.utils import create_log_dir
 from reward import kvlogger
@@ -177,6 +178,43 @@ def make_env(env_name, num_tiers, discount, delta):
             lava_penalty=None,
             custom_rewards=tier_r,
         )
+    
+    elif env_name == "flag_grid":
+        env = make_flag_grid(
+            discount_rate=discount,
+            success_prob=0.8,
+            step_cost=-1,
+            flag_rewards=None,
+        )
+        flag_to_tier = {
+            None: 0,
+            1: 1,
+            2: 2, 
+            3: 3,
+            4: 4, 
+            'g': 5
+        }
+        flag_rewards={
+            None: _get_tier_reward(0, num_total_tiers=6, gamma=discount, delta=delta),
+            1: _get_tier_reward(1, num_total_tiers=6, gamma=discount, delta=delta),
+            2: _get_tier_reward(2, num_total_tiers=6, gamma=discount, delta=delta),
+            3: _get_tier_reward(3, num_total_tiers=6, gamma=discount, delta=delta),
+            4: _get_tier_reward(4, num_total_tiers=6, gamma=discount, delta=delta),
+            'g': _get_tier_reward(5, num_total_tiers=6, gamma=discount, delta=delta),
+        }
+        print(flag_rewards)
+        tier_env = make_flag_grid(
+            discount_rate=discount,
+            success_prob=0.8,
+            step_cost=None,
+            flag_rewards=flag_rewards
+        )
+        # TODO: this isn't right
+        tier_pbs_env = potential_based_shaping_reward(
+            env,
+            shaping_func=lambda s: _get_tier_reward(flag_to_tier[env.current_flag], 6, discount, delta)
+        )
+        return env, tier_env, tier_pbs_env
 
     else:
         raise NotImplementedError
@@ -192,7 +230,7 @@ def make_env(env_name, num_tiers, discount, delta):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=str, default="chain",
-                        choices=["chain", "grid", "frozen_lake", "rn_grid", "wall_grid"],)
+                        choices=["chain", "grid", "frozen_lake", "rn_grid", "wall_grid", "flag_grid"],)
     parser.add_argument('--agent', type=str, default='qlearning',
                         choices=['qlearning', 'rmax'])
     parser.add_argument("--steps", type=int, default=100_000)
