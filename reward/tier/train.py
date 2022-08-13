@@ -185,21 +185,13 @@ def make_env(env_name, num_tiers, discount, delta):
             step_cost=-1,
             flag_rewards=None,
         )
-        flag_to_tier = {
-            None: 0,
-            1: 1,
-            2: 2, 
-            3: 3,
-            4: 4, 
-            'g': 5
-        }
         flag_rewards={
-            None: _get_tier_reward(0, num_total_tiers=6, gamma=discount, delta=delta),
+            0: _get_tier_reward(0, num_total_tiers=6, gamma=discount, delta=delta),
             1: _get_tier_reward(1, num_total_tiers=6, gamma=discount, delta=delta),
             2: _get_tier_reward(2, num_total_tiers=6, gamma=discount, delta=delta),
             3: _get_tier_reward(3, num_total_tiers=6, gamma=discount, delta=delta),
             4: _get_tier_reward(4, num_total_tiers=6, gamma=discount, delta=delta),
-            'g': _get_tier_reward(5, num_total_tiers=6, gamma=discount, delta=delta),
+            5: _get_tier_reward(5, num_total_tiers=6, gamma=discount, delta=delta),
         }
         tier_env = make_flag_grid(
             discount_rate=discount,
@@ -208,7 +200,7 @@ def make_env(env_name, num_tiers, discount, delta):
         )
         tier_pbs_env = potential_based_shaping_reward(
             env,
-            shaping_func=lambda s: _get_tier_reward(flag_to_tier[s['flag']], 6, discount, delta)
+            shaping_func=lambda s: _get_tier_reward(s['flag'], 6, discount, delta)
         )
         return env, tier_env, tier_pbs_env
 

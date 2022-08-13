@@ -14,15 +14,6 @@ def make_flag_grid(discount_rate, step_cost=-1, flag_rewards=None):
     The Gridworld with 5 flags from the Potential Based Reward Shaping paper by Ng
     http://luthuli.cs.uiuc.edu/~daf/courses/games/AIpapers/ml99-shaping.pdf
     """
-    if flag_rewards is None:
-        flag_rewards = {
-            'g': +1,
-            1: step_cost,
-            2: step_cost,
-            3: step_cost,
-            4: step_cost,
-        }
-    
     # default grid config
     tile_array = [
         '....g',
@@ -31,13 +22,27 @@ def make_flag_grid(discount_rate, step_cost=-1, flag_rewards=None):
         '.....',
         's....',
     ]
+    height = len(tile_array)
+    width = len(tile_array[0])
+
+    default_flag = 0
+    goal_flag = 5
     flag_array = [
-        [None, None, None, None, 'g'],
-        [None, 2, None, None, None],
-        [None, None, None, None, None],
-        [3, None, None, None, 1],
-        [None, None, None, None, 4],
+        [default_flag, default_flag, default_flag, default_flag, goal_flag],
+        [default_flag, 2, default_flag, default_flag, default_flag],
+        [default_flag, default_flag, default_flag, default_flag, default_flag],
+        [3, default_flag, default_flag, default_flag, 1],
+        [default_flag, default_flag, default_flag, default_flag, 4],
     ]
+
+    if flag_rewards is None:
+        flag_rewards = {
+            goal_flag: +1,
+            1: step_cost,
+            2: step_cost,
+            3: step_cost,
+            4: step_cost,
+        }
 
     # parse tile array
     parseParams = {"colsep": "", "rowsep": "\n", "elementsep": "."}
@@ -73,14 +78,14 @@ def make_flag_grid(discount_rate, step_cost=-1, flag_rewards=None):
         return UniformDistribution(initStates)
     
     def is_terminal(s):
-        return s['flag'] == 'g'
+        return s['flag'] == goal_flag
     
     def reward(s, a, ns):
         f = ns['flag']
         return flag_rewards.get(f, step_cost)
     
     def is_valid_loc(x, y):
-        return 0 <= x <= 4 and 0 <= y <= 4
+        return 0 <= x <= width-1 and 0 <= y <= height-1
     
     def apply_action(s, a):
         # location change
@@ -93,7 +98,11 @@ def make_flag_grid(discount_rate, step_cost=-1, flag_rewards=None):
             nx, ny = x, y
         
         # flag change
-        nflag = locFlags[(nx, ny)]
+        n_location_flag = locFlags[(nx, ny)]
+        if n_location_flag == flag + 1:
+            nflag = n_location_flag
+        else:
+            nflag = flag
 
         ns = frozendict({'x': nx, 'y': ny, 'flag': nflag})
         return ns
