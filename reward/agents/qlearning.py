@@ -3,7 +3,7 @@ from msdm.algorithms.tdlearning import epsilon_softmax_sample
 from msdm.algorithms import QLearning as MSDMQLearning
 from msdm.core.algorithmclasses import Result
 
-from reward.agents.event_listeners import EpisodicReward, TimeAtGoal, NumGoalsHit, Seed
+from reward.agents.event_listeners import EpisodicReward, TimeAtGoal, NumGoalsHit, Seed, EpisodeLength
     
 
 class QLearning(MSDMQLearning):
@@ -34,6 +34,7 @@ class QLearning(MSDMQLearning):
             TimeAtGoal(),
             Seed(),
             NumGoalsHit(),
+            EpisodeLength(),
         ]
 
     # def _check_q_convergence(self, mdp, q):

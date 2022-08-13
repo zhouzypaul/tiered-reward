@@ -9,7 +9,7 @@ from reward.agents import QLearning, RMaxAgent, run_learning, run_multiprocessin
 from reward.tier.reward_functions import potential_based_shaping_reward, \
     make_distance_based_tier_reward, make_frozen_lake_tier_reward, make_wall_grid_tier_reward, \
     _get_tier_reward
-from reward.tier.plot import compare_goal_hitting_stat_with_different_tiers
+from reward.tier.plot import compare_goal_hitting_stat_with_different_tiers, plot_q_learning_results
 from reward.utils import create_log_dir
 from reward import kvlogger
 
@@ -260,10 +260,10 @@ if __name__ == "__main__":
         # log results
         def log_results(result, reward_type):
             for res in result:
-                episodic_reward = res.EpisodicReward
-                for step, ep_reward in episodic_reward.items():
-                    kvlogger.logkv('step', step)
-                    kvlogger.logkv('episodic_reward', ep_reward)
+                episodic_lengths = res.EpisodeLength
+                for ep, ep_len in episodic_lengths.items():
+                    kvlogger.logkv('Episode', ep)
+                    kvlogger.logkv('Episode Length', ep_len)
                     kvlogger.logkv('Reward Type', reward_type)
                     kvlogger.logkv('time_till_goal', res.TimeAtGoal)
                     kvlogger.logkv('num_goals_hit', res.NumGoalsHit)
@@ -276,4 +276,7 @@ if __name__ == "__main__":
         log_results(tiered_pbs_results, 'Tier Based Shaping')
 
     # plot results
-    compare_goal_hitting_stat_with_different_tiers(os.path.join('results', f"{args.env}-{args.agent}"), args.tiers)
+    if len(args.tiers) == 1:
+        plot_q_learning_results(os.path.join('results', f"{args.env}-{args.agent}", f"{args.tiers[0]}-tier"))
+    else:
+        compare_goal_hitting_stat_with_different_tiers(os.path.join('results', f"{args.env}-{args.agent}"), args.tiers)

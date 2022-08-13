@@ -7,7 +7,7 @@ from msdm.core.algorithmclasses import Learns, Result
 from msdm.core.distributions import DictDistribution
 from msdm.core.problemclasses.mdp import TabularMarkovDecisionProcess, TabularPolicy
 
-from reward.agents.event_listeners import EpisodicReward, TimeAtGoal, NumGoalsHit, Seed
+from reward.agents.event_listeners import EpisodicReward, TimeAtGoal, NumGoalsHit, Seed, EpisodeLength
 
 
 class RMax():
@@ -210,6 +210,7 @@ class RMaxAgent(Learns):
             TimeAtGoal(),
             Seed(),
             NumGoalsHit(),
+            EpisodeLength(),
         ]
 
     def _training(self, mdp, rng, event_listeners):

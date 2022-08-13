@@ -8,8 +8,7 @@ from matplotlib import pyplot as plt
 def plot_q_learning_results(results_dir):
     """
     find the progress.csv inside results_dir and plot:
-        1. the episodic reward during learning
-        2. the time till goal
+        1. the episodic lengths during learning
     the plot is averaged across different random seeds
     """
     csv_path = os.path.join(results_dir, 'progress.csv')
@@ -18,14 +17,14 @@ def plot_q_learning_results(results_dir):
     df = pd.read_csv(csv_path)
     sns.lineplot(
         data=df,
-        x='step',
-        y='episodic_reward',
+        x='Episode',
+        y='Episode Length',
         hue='Reward Type',
     )
-    plt.title('Episodic Reward')
-    plt.xlabel('Step')
-    plt.ylabel('Episodic Reward')
-    save_path = os.path.join(results_dir, 'episodic_reward.png')
+    plt.title('Episodic Lengths')
+    plt.xlabel('Episode')
+    plt.ylabel('Steps taken to reach goal')
+    save_path = os.path.join(results_dir, 'episodic_lengths.png')
     plt.savefig(save_path)
     print(f'saved to {save_path}')
     plt.close()

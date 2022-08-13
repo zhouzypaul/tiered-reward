@@ -2,6 +2,23 @@ import numpy as np
 from msdm.algorithms.tdlearning import TDLearningEventListener
 
 
+class EpisodeLength(TDLearningEventListener):
+    """record the length of each episode"""
+    def __init__(self):
+        self.current_episode = 0
+        self.episode_lengths = {}
+    def end_of_timestep(self, local_vars):
+        pass
+    def end_of_episode(self, local_vars):
+        if self.current_episode == 0:
+            self.episode_lengths[self.current_episode] = local_vars['i_step']
+        else:
+            self.episode_lengths[self.current_episode] = local_vars['i_step'] - self.episode_lengths[self.current_episode - 1]
+        self.current_episode += 1
+    def results(self):
+        return self.episode_lengths
+
+
 class TimeAtGoal(TDLearningEventListener):
     """which timestep did the agent get to the terminal state"""
     def __init__(self):
