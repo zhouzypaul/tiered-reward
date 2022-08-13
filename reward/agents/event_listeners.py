@@ -6,6 +6,7 @@ class EpisodeLength(TDLearningEventListener):
     """record the length of each episode"""
     def __init__(self):
         self.current_episode = 0
+        self.cumulative_steps = 0
         self.episode_lengths = {}
     def end_of_timestep(self, local_vars):
         pass
@@ -13,7 +14,8 @@ class EpisodeLength(TDLearningEventListener):
         if self.current_episode == 0:
             self.episode_lengths[self.current_episode] = local_vars['i_step']
         else:
-            self.episode_lengths[self.current_episode] = local_vars['i_step'] - self.episode_lengths[self.current_episode - 1]
+            self.episode_lengths[self.current_episode] = local_vars['i_step'] - self.cumulative_steps
+        self.cumulative_steps += self.episode_lengths[self.current_episode]
         self.current_episode += 1
     def results(self):
         return self.episode_lengths
