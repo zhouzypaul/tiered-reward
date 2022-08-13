@@ -206,8 +206,10 @@ def make_env(env_name, num_tiers, discount, delta):
             step_cost=None,
             flag_rewards=flag_rewards
         )
-        # TODO: this isn't right
-        tier_pbs_env = tier_env
+        tier_pbs_env = potential_based_shaping_reward(
+            env,
+            shaping_func=lambda s: _get_tier_reward(flag_to_tier[s['flag']], 6, discount, delta)
+        )
         return env, tier_env, tier_pbs_env
 
     else:
