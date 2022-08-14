@@ -1,6 +1,5 @@
 import math
 import random
-from collections import defaultdict
 
 import numpy as np
 from msdm.core.algorithmclasses import Learns, Result
