@@ -224,7 +224,7 @@ if __name__ == "__main__":
                         choices=["chain", "grid", "frozen_lake", "rn_grid", "wall_grid", "flag_grid"],)
     parser.add_argument('--agent', type=str, default='qlearning',
                         choices=['qlearning', 'rmax'])
-    parser.add_argument("--steps", type=int, default=5_000)
+    parser.add_argument("--steps", type=int, default=7_000)
     parser.add_argument("--tiers", "-t", type=int, nargs="+", default=[5], help="number of tiers to use for reward")
     parser.add_argument("--seed", "-s", type=int, default=0, help="random seed")
     parser.add_argument("--num_seeds", type=int, default=10, help="number of seeds to use for multiprocessing")

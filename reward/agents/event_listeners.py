@@ -28,8 +28,11 @@ class TimeAtGoal(TDLearningEventListener):
     def end_of_timestep(self, local_vars):
         pass
     def end_of_episode(self, local_vars):
-        if local_vars['mdp'].is_terminal(local_vars['s']) and local_vars['i_step'] < self.time_at_goal:
-            self.time_at_goal = local_vars['i_step']
+        s = local_vars['s']
+        if local_vars['mdp'].is_terminal(s) and local_vars['i_step'] < self.time_at_goal:
+            # make sure the terminal is a goal, because it can also be a obstacle
+            if local_vars['mdp'].location_features.get(s, '') == 'g':
+                self.time_at_goal = local_vars['i_step']
     def results(self):
         return self.time_at_goal
 
