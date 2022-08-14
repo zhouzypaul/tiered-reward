@@ -66,8 +66,8 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
         y='time_till_goal',
         hue='Reward Type',
     )
-    plt.title(f'Learning Time: {env_name}')
-    plt.xlabel('Tier')
+    plt.title(f'{capitalize(env_name)}')
+    plt.xlabel('Number of Tiers')
     plt.ylabel('Steps Till First Reaching Goal')
     plt.xticks(tiers_to_compare)
     save_path = os.path.join(results_dir, 'learning_time.png')
@@ -82,14 +82,18 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
         y='num_goals_hit',
         hue='Reward Type',
     )
-    plt.title(f'Number of Goals Hit: {env_name}')
-    plt.xlabel('Tier')
+    plt.title(f'Number of Goals Hit: {capitalize(env_name)}')
+    plt.xlabel('Number of Tiers')
     plt.ylabel('Number of Goals Hit During Learning')
     plt.xticks(tiers_to_compare)
     save_path = os.path.join(results_dir, 'num_goals_hit.png')
     plt.savefig(save_path)
     print(f'saved to {save_path}')
     plt.close()
+
+
+def capitalize(s):
+    return s[0].upper() + s[1:]
 
 
 if __name__ == "__main__":
