@@ -65,6 +65,7 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
         x='tier',
         y='time_till_goal',
         hue='Reward Type',
+        style='Reward Type',
     )
     plt.title(f'{capitalize(env_name)}')
     plt.xlabel('Number of Tiers')
@@ -81,6 +82,7 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
         x='tier',
         y='num_goals_hit',
         hue='Reward Type',
+        style='Reward Type',
     )
     plt.title(f'Number of Goals Hit: {capitalize(env_name)}')
     plt.xlabel('Number of Tiers')
