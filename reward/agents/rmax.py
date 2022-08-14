@@ -79,13 +79,11 @@ class RMax():
                 self.transitions[state][action][next_state] += 1
 
                 if self.s_a_counts[state][action] == self.s_a_threshold:
-                    # Start updating Q values for subsequent states
-                    for _ in range(self.num_value_iter): 
-                        self.value_iteration()
+                    self.value_iteration()
 
     def value_iteration(self):
         '''
-        Do one iteration of value iteration to compute the q values
+        Do some iterations of value iteration to compute the q values
         Only update the (s, a) pairs that have enough experiences seen
         Q(s, a) = R(s, a) + gamma * \sum_s' T(s, a, s') * max_a' Q(s', a')
         '''
@@ -100,15 +98,21 @@ class RMax():
         # assume a self-loop if there's not enough data
         empirical_transition_mat = self.transitions / pseudo_count[:, :, None]
         # only masked positions should be trusted, otherwise self transition
-        self_transition_mat = np.zeros_like(empirical_transition_mat)
-        self_transition_mat[np.arange(len(self.states)), :, np.arange(len(self.states))] = 1
-        empirical_transition_mat[~mask] = self_transition_mat[~mask]
+
+        empirical_transition_mat[~mask] = self._self_transition_mat[~mask]
         assert np.all(empirical_transition_mat.sum(axis=-1) == 1)
 
         # compute the update for every (s, a), but only apply the ones that needed with a mask
-        v = np.max(self.q_func, axis=-1)
-        new_q = empirical_reward_mat + self.gamma * np.einsum("san,n->sa", empirical_transition_mat, v)
-        self.q_func[mask] = new_q[mask]
+        for _ in range(self.num_value_iter):
+            v = np.max(self.q_func, axis=-1)
+            new_q = empirical_reward_mat + self.gamma * np.einsum("san,n->sa", empirical_transition_mat, v)
+            self.q_func[mask] = new_q[mask]
+    
+    @cached_property
+    def _self_transition_mat(self):
+        self_transition_mat = np.zeros_like(self.transitions)
+        self_transition_mat[np.arange(len(self.states)), :, np.arange(len(self.states))] = 1
+        return self_transition_mat
 
     def get_next_state_value(self, state, action):
         '''
