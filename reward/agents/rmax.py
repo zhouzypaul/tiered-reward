@@ -15,7 +15,7 @@ class RMax():
     implementation from simple_rl by Dave Abel 
     '''
 
-    def __init__(self, states, actions, gamma=0.9, s_a_threshold=10, epsilon_one=0.99, max_reward=1.0, custom_q_init=None):
+    def __init__(self, states, actions, gamma=0.9, s_a_threshold=3, epsilon_one=0.99, max_reward=1.0, custom_q_init=None):
         self.states = list(states)
         self.actions = list(actions) # Just in case we're given a numpy array (like from Atari).
         self.gamma = gamma
@@ -89,11 +89,25 @@ class RMax():
         Only update the (s, a) pairs that have enough experiences seen
         Q(s, a) = R(s, a) + gamma * \sum_s' T(s, a, s') * max_a' Q(s', a')
         '''
+        # mask for update
+        mask = self.s_a_counts >= self.s_a_threshold
+
+        # build the reward model
         empirical_reward_mat = self.rewards / self.s_a_threshold
-        empirical_transition_mat = self.transitions / self.s_a_counts[:, :, None]
+
+        # build the transition model: assume self-loop if there's not enough data
+        # assume a self-loop if there's not enough data
+        pseudo_count = np.where(self.s_a_counts == 0, 1, self.s_a_counts)  # avoid divide by zero
+        empirical_transition_mat = self.transitions / pseudo_count[:, :, None]
+        # only masked positions should be trusted, otherwise self transition
+        self_transition_mat = np.zeros_like(empirical_transition_mat)
+        self_transition_mat[np.arange(len(self.states)), :, np.arange(len(self.states))] = 1
+        empirical_transition_mat[~mask] = self_transition_mat[~mask]
+        assert np.all(empirical_transition_mat.sum(axis=-1) == 1)
+
+        # compute the update for every (s, a), but only apply the ones that needed with a mask
         v = np.max(self.q_func, axis=-1)
         new_q = empirical_reward_mat + self.gamma * np.einsum("san,n->sa", empirical_transition_mat, v)
-        mask = self.s_a_counts >= self.s_a_threshold
         self.q_func[mask] = new_q[mask]
 
     def get_next_state_value(self, state, action):
@@ -162,35 +176,6 @@ class RMax():
         '''
 
         return self.q_func[state][action]
-
-    def _get_reward(self, state, action):
-        '''
-        Args:
-            state (State)
-            action (str)
-        Returns:
-            Believed reward of executing @action in @state. If R(s,a) is unknown
-            for this s,a pair, return self.rmax. Otherwise, return the MLE.
-        '''
-
-        if self.s_a_counts[state][action] >= self.s_a_threshold:
-            # Compute MLE if we've seen this s,a pair enough.
-            return self.rewards[state][action] / self.s_a_threshold
-        else:
-            # Otherwise return rmax.
-            return self.rmax
-    
-    def _get_transition(self, state, action, next_state):
-        '''
-        Args: 
-            state (State)
-            action (str)
-            next_state (str)
-            Returns:
-                Empirical probability of transition n(s,a,s')/n(s,a) 
-        '''
-
-        return self.transitions[state][action][next_state] / self.s_a_counts[state][action]
 
 
 class RMaxAgent(Learns):
