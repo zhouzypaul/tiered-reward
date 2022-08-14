@@ -67,7 +67,7 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
         hue='Reward Type',
         style='Reward Type',
     )
-    plt.title(f'{capitalize(env_name)}')
+    plt.title(f'{pretty_env_name(env_name)}')
     plt.xlabel('Number of Tiers')
     plt.ylabel('Steps Till First Reaching Goal')
     plt.xticks(tiers_to_compare)
@@ -84,7 +84,7 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
         hue='Reward Type',
         style='Reward Type',
     )
-    plt.title(f'Number of Goals Hit: {capitalize(env_name)}')
+    plt.title(f'Number of Goals Hit: {pretty_env_name(env_name)}')
     plt.xlabel('Number of Tiers')
     plt.ylabel('Number of Goals Hit During Learning')
     plt.xticks(tiers_to_compare)
@@ -93,6 +93,10 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
     print(f'saved to {save_path}')
     plt.close()
 
+def pretty_env_name(env_name):
+    by_letters = env_name.split('_')
+    by_letters = [capitalize(s) for s in by_letters]
+    return ' '.join(by_letters)
 
 def capitalize(s):
     return s[0].upper() + s[1:]

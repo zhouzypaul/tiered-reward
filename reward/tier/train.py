@@ -271,7 +271,7 @@ if __name__ == "__main__":
                     kvlogger.dumpkvs()
 
         kvlogger.configure(saving_dir, format_strs=['csv'], log_suffix='')
-        log_results(results, 'Original')
+        log_results(results, 'Action Penalty')
         log_results(tiered_results, 'Tiered')
         log_results(tiered_pbs_results, 'Tier Based Shaping')
 
