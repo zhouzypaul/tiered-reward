@@ -53,7 +53,7 @@ class FrozenLake(SlipperyGrid):
             [7, 8, 9, np.inf, 13, 12, 13, 14],
         ]
         frozen_lake_location_distance = [
-            np.add(a, b) for a, b in zip(frozen_lake_goal_distance, frozen_lake_start_state_distance)
+            2*np.array(a) + np.array(b) for a, b in zip(frozen_lake_goal_distance, frozen_lake_start_state_distance)
         ]
         
 
