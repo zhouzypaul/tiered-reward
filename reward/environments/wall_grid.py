@@ -39,7 +39,7 @@ class WallGrid(SlipperyGrid):
             [6, 5, 4, 3, 2, 1, 0, 1, 2, 3, 4],
         ]
         wall_grid_location_distance = [
-            np.add(a, b) for a, b in zip(wall_grid_goal_distance, wall_grid_start_state_distance)
+            2*np.array(a) + np.array(b) for a, b in zip(wall_grid_goal_distance, wall_grid_start_state_distance)
         ]
 
         super().__init__(
