@@ -137,6 +137,10 @@ def make_flag_grid(discount_rate, step_cost=-1, flag_rewards=None):
         discount_rate=discount_rate
     )
 
+    gw.location_features = {
+        frozendict({'x': 4, 'y': 4, 'flag': 5}): 'g',
+    }
+
     return gw
 
 
