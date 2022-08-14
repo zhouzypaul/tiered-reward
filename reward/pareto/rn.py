@@ -153,8 +153,9 @@ def plot_policy_termination_prob(env_name, gamma, num_steps, verbose=False):
     plt.legend(loc='upper left')
     plt.title(f'Comparing Policies')
     plt.xlabel('Step')
-    plt.ylabel(r'$l_t - 1$                                      $p_t$')
+    plt.ylabel(r'$o_t - 1$                                      $p_t$')
     plt.ylim((-1.05, 1.05))
+    plt.xticks(range(1, num_steps+1))
     save_path = f'results/{env_name}/RGB_prob.png'
     plt.savefig(save_path)
     print(f'plot saved to {save_path}')
@@ -165,7 +166,7 @@ def plot_policy_termination_prob(env_name, gamma, num_steps, verbose=False):
     state_dist = get_state_distribution(mdp, policy, num_steps)
     goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
     lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])  # (nsteps,)
-    plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors['R'], label=f"move to goal")
+    plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors['R'], label=f"R")
     plt.plot(range(1, num_steps+1), lava_probs-1, '-.', color=colors['R'])
     plt.fill_between(range(1, num_steps+1), goal_probs, lava_probs-1, color=colors['R'], alpha=0.5)
     for direction in ['left', 'right']:
@@ -180,8 +181,9 @@ def plot_policy_termination_prob(env_name, gamma, num_steps, verbose=False):
     plt.legend(loc='upper left')
     plt.title(f'Comparing Policies')
     plt.xlabel('Step')
-    plt.ylabel(r'$l_t - 1$                                      $p_t$')
+    plt.ylabel(r'$o_t - 1$                                      $p_t$')
     plt.ylim((-1.05, 1.05))
+    plt.xticks(range(1, num_steps+1))
     save_path = f'results/{env_name}/one_direction_policy_prob.png'
     plt.savefig(save_path)
     print(f'plot saved to {save_path}')
