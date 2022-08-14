@@ -16,9 +16,18 @@ class RMax():
     implementation from simple_rl by Dave Abel 
     '''
 
-    def __init__(self, states, actions, gamma=0.9, s_a_threshold=3, epsilon_one=0.99, max_reward=1.0, custom_q_init=None):
+    def __init__(self, 
+                states, 
+                actions, 
+                rng=random,
+                gamma=0.9, 
+                s_a_threshold=3, 
+                epsilon_one=0.99, 
+                max_reward=1.0, 
+                custom_q_init=None):
         self.states = list(states)
         self.actions = list(actions) # Just in case we're given a numpy array (like from Atari).
+        self.rng = rng
         self.gamma = gamma
         self.epsilon_one = epsilon_one
         self.episode_number = 0
@@ -145,7 +154,7 @@ class RMax():
         '''
         # Grab random initial action in case all equal
         if np.all(self.q_func[state] == self.q_func[state, 0]):
-            best_action = random.choice(self.actions)
+            best_action = self.rng.choice(self.actions)
         else:
             best_action =np.argmax(self.q_func[state])
         max_q_val = self.q_func[state][best_action]
@@ -210,6 +219,7 @@ class RMaxAgent(Learns):
         agent = RMax(
             states=range(len(mdp.state_list)),
             actions=range(len(mdp.action_list)),
+            rng=rng,
             gamma=mdp.discount_rate,
             s_a_threshold=2,
             epsilon_one=0.99,
