@@ -9,7 +9,7 @@ from reward.agents import QLearning, RMaxAgent, run_learning, run_multiprocessin
 from reward.tier.reward_functions import potential_based_shaping_reward, \
     make_distance_based_tier_reward, make_frozen_lake_tier_reward, make_wall_grid_tier_reward, \
     _get_tier_reward
-from reward.tier.plot import compare_goal_hitting_stat_with_different_tiers, plot_q_learning_results
+from reward.tier.plot import compare_goal_hitting_stat_with_different_tiers, plot_flag_grid_learning_results
 from reward.utils import create_log_dir
 from reward import kvlogger
 
@@ -280,6 +280,7 @@ if __name__ == "__main__":
 
     # plot results
     if len(args.tiers) == 1:
-        plot_q_learning_results(os.path.join('results', f"{args.env}-{args.agent}", f"{args.tiers[0]}-tier"), args.gamma)
+        assert args.env == 'flag_grid'
+        plot_flag_grid_learning_results(os.path.join('results', f"{args.env}-{args.agent}", f"{args.tiers[0]}-tier"), args.gamma)
     else:
         compare_goal_hitting_stat_with_different_tiers(os.path.join('results', f"{args.env}-{args.agent}"), args.tiers)

@@ -5,7 +5,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 
-def plot_q_learning_results(results_dir, gamma=0.9):
+def plot_flag_grid_learning_results(results_dir, gamma=0.9):
     """
     find the progress.csv inside results_dir and plot:
         1. the episodic lengths during learning
@@ -16,6 +16,7 @@ def plot_q_learning_results(results_dir, gamma=0.9):
 
     df = pd.read_csv(csv_path)
     df = df[df.Episode <= 160]  # zoom in on earlier episodes
+    df = df.sort_values(by='Reward Type')
     sns.lineplot(
         data=df,
         x='Episode',
@@ -26,7 +27,7 @@ def plot_q_learning_results(results_dir, gamma=0.9):
     plt.title(r'Flag Grid: $\gamma=$' + str(gamma))
     plt.xlabel('Episode')
     plt.ylabel('Steps Taken to Reach Goal')
-    save_path = os.path.join(results_dir, 'episodic_lengths.png')
+    save_path = os.path.join(os.path.dirname(results_dir), f'flag_grid_{gamma}.png')
     plt.savefig(save_path)
     print(f'saved to {save_path}')
     plt.close()
@@ -103,4 +104,4 @@ if __name__ == "__main__":
     if args.plot_hitting_time:
         compare_goal_hitting_stat_with_different_tiers(args.load, args.tiers)
     else:
-        plot_q_learning_results(args.load)
+        plot_flag_grid_learning_results(args.load)
