@@ -10,6 +10,8 @@ def _get_tier_reward(tier, num_total_tiers, gamma, delta=0.1):
     """
     what's the reward for the i-the tier
     """
+    if gamma == 1:
+        gamma = 0.99  # hack to stop reward from exploding
     h = 1 / (1 - gamma)
     if tier >= num_total_tiers - 1:
         return 0

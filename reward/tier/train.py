@@ -20,7 +20,7 @@ def train_on_env(env, agent_name, num_steps, num_seeds, multiprocessing=True, ve
     """
     if multiprocessing:
         agents = [
-            make_agent(agent_name, seed=s, num_steps=num_steps)
+            make_agent(agent_name, seed=s, num_steps=num_steps, gamma=env.discount_rate)
             for s in range(num_seeds)
         ]
         results = run_multiprocessing_learning(
@@ -28,7 +28,7 @@ def train_on_env(env, agent_name, num_steps, num_seeds, multiprocessing=True, ve
             agents=agents,
         )
     else:
-        agent = make_agent(agent_name, seed, num_steps)
+        agent = make_agent(agent_name, seed, num_steps, gamma=env.discount_rate)
         result = run_learning(env, agent)
         results = [result]
 
@@ -42,11 +42,14 @@ def train_on_env(env, agent_name, num_steps, num_seeds, multiprocessing=True, ve
 
     return results
 
-def make_agent(agent_name, seed, num_steps):
+def make_agent(agent_name, seed, num_steps, gamma=0.9):
     """
     create the learning agent
     """
-    optimistic_value = 1e10
+    if gamma < 1:
+        optimistic_value = 1e5
+    else:
+        optimistic_value = 0.
     if agent_name == 'qlearning':
         agent = QLearning(
             num_steps=num_steps,
@@ -277,6 +280,6 @@ if __name__ == "__main__":
 
     # plot results
     if len(args.tiers) == 1:
-        plot_q_learning_results(os.path.join('results', f"{args.env}-{args.agent}", f"{args.tiers[0]}-tier"))
+        plot_q_learning_results(os.path.join('results', f"{args.env}-{args.agent}", f"{args.tiers[0]}-tier"), args.gamma)
     else:
         compare_goal_hitting_stat_with_different_tiers(os.path.join('results', f"{args.env}-{args.agent}"), args.tiers)
