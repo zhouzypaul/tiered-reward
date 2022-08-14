@@ -20,7 +20,7 @@ def train_on_env(env, agent_name, num_steps, num_seeds, multiprocessing=True, ve
     """
     if multiprocessing:
         agents = [
-            make_agent(agent_name, seed=s, num_steps=num_steps, gamma=env.discount_rate)
+            make_agent(agent_name, seed=s, num_steps=num_steps)
             for s in range(num_seeds)
         ]
         results = run_multiprocessing_learning(
@@ -28,7 +28,7 @@ def train_on_env(env, agent_name, num_steps, num_seeds, multiprocessing=True, ve
             agents=agents,
         )
     else:
-        agent = make_agent(agent_name, seed, num_steps, gamma=env.discount_rate)
+        agent = make_agent(agent_name, seed, num_steps)
         result = run_learning(env, agent)
         results = [result]
 
@@ -42,14 +42,11 @@ def train_on_env(env, agent_name, num_steps, num_seeds, multiprocessing=True, ve
 
     return results
 
-def make_agent(agent_name, seed, num_steps, gamma=0.9):
+def make_agent(agent_name, seed, num_steps):
     """
     create the learning agent
     """
-    if gamma < 1:
-        optimistic_value = 1e5
-    else:
-        optimistic_value = 0.
+    optimistic_value = 1e5
     if agent_name == 'qlearning':
         agent = QLearning(
             num_steps=num_steps,
