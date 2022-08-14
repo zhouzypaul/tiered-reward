@@ -14,7 +14,7 @@ def plot_grid_reward(gw, plot_name_prefix, results_dir, reward_vec=None, plot_ov
     reward_vec = gw.reward_vector if reward_vec is None else reward_vec
     states, _ = get_ordered_state_action_list(gw)
 
-    gw_plot = gw.plot().title(f'{plot_name_prefix}: reward function')
+    gw_plot = gw.plot()
 
     # handle reward range
     if len(reward_vec) == 0:

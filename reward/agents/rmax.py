@@ -16,7 +16,7 @@ class RMax():
     implementation from simple_rl by Dave Abel 
     '''
 
-    def __init__(self, states, actions, gamma=0.95, s_a_threshold=2, epsilon_one=0.99, max_reward=1.0, custom_q_init=None):
+    def __init__(self, states, actions, gamma=0.9, s_a_threshold=10, epsilon_one=0.99, max_reward=1.0, custom_q_init=None):
         self.states = list(states)
         self.actions = list(actions) # Just in case we're given a numpy array (like from Atari).
         self.gamma = gamma
