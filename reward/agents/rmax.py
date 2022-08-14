@@ -91,13 +91,13 @@ class RMax():
         '''
         # mask for update
         mask = self.s_a_counts >= self.s_a_threshold
+        pseudo_count = np.where(self.s_a_counts == 0, 1, self.s_a_counts)  # avoid divide by zero
 
         # build the reward model
-        empirical_reward_mat = self.rewards / self.s_a_threshold
+        empirical_reward_mat = self.rewards / pseudo_count
 
         # build the transition model: assume self-loop if there's not enough data
         # assume a self-loop if there's not enough data
-        pseudo_count = np.where(self.s_a_counts == 0, 1, self.s_a_counts)  # avoid divide by zero
         empirical_transition_mat = self.transitions / pseudo_count[:, :, None]
         # only masked positions should be trusted, otherwise self transition
         self_transition_mat = np.zeros_like(empirical_transition_mat)
