@@ -164,7 +164,7 @@ def plot_policy_termination_prob(env_name, gamma, num_steps, verbose=False):
     plt.legend(loc='upper left')
     plt.title(f'Comparing Policies')
     plt.xlabel('Step')
-    plt.ylabel(r'$o_t - 1$                                      $p_t$')
+    plt.ylabel(r'$o_t - 1$                                      $g_t$')
     plt.ylim((-1.05, 1.05))
     plt.xticks(x)
     save_path = f'results/{env_name}/RGB_prob.png'
@@ -191,7 +191,7 @@ def plot_policy_termination_prob(env_name, gamma, num_steps, verbose=False):
     plt.legend(loc='upper left')
     plt.title(f'Comparing Policies')
     plt.xlabel('Step')
-    plt.ylabel(r'$o_t - 1$                                      $p_t$')
+    plt.ylabel(r'$o_t - 1$                                      $g_t$')
     plt.ylim((-1.05, 1.05))
     plt.xticks(range(1, num_steps+1))
     save_path = f'results/{env_name}/one_direction_policy_prob.png'
