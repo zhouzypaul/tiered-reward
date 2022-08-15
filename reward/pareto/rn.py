@@ -153,7 +153,7 @@ def plot_policy_termination_prob(env_name, gamma, num_steps, verbose=False):
     g_lava_probs = _accumulate_state_distribution(g_state_dist[:, LAVA])
     b_lava_probs = _accumulate_state_distribution(b_state_dist[:, LAVA])
 
-    x = range(1, num_steps + 1)
+    x = range(num_steps)
     alpha = 0.6
     plt.fill_between(x, r_goal_probs, g_goal_probs, facecolor="r", alpha=alpha, label=r'R')
     plt.fill_between(x, g_goal_probs, b_goal_probs, facecolor="y", alpha=alpha, label=r'R $\cap$ G')
@@ -164,9 +164,10 @@ def plot_policy_termination_prob(env_name, gamma, num_steps, verbose=False):
     plt.legend(loc='upper left')
     plt.title(f'Comparing Policies')
     plt.xlabel('Step')
-    plt.ylabel(r'$o_t - 1$                                      $g_t$')
+    plt.ylabel(r'$- 1 + \sum_t o_t$                                      $\sum_t g_t$')
     plt.ylim((-1.05, 1.05))
     plt.xticks(x)
+    plt.subplots_adjust(left=0.17, right=0.95)
     save_path = f'results/{env_name}/RGB_prob.png'
     plt.savefig(save_path)
     print(f'plot saved to {save_path}')
@@ -191,9 +192,10 @@ def plot_policy_termination_prob(env_name, gamma, num_steps, verbose=False):
     plt.legend(loc='upper left')
     plt.title(f'Comparing Policies')
     plt.xlabel('Step')
-    plt.ylabel(r'$o_t - 1$                                      $g_t$')
+    plt.ylabel(r'$- 1 + \sum_t o_t$                                      $\sum_t g_t$')
     plt.ylim((-1.05, 1.05))
-    plt.xticks(range(1, num_steps+1))
+    plt.xticks(x)
+    plt.subplots_adjust(left=0.17, right=0.95)
     save_path = f'results/{env_name}/one_direction_policy_prob.png'
     plt.savefig(save_path)
     print(f'plot saved to {save_path}')
