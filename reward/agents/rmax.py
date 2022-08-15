@@ -22,20 +22,19 @@ class RMax():
                 rng=random,
                 gamma=0.9, 
                 s_a_threshold=3, 
-                epsilon_one=0.99, 
+                num_value_iter=200, 
                 max_reward=1.0, 
                 custom_q_init=None):
         self.states = list(states)
         self.actions = list(actions) # Just in case we're given a numpy array (like from Atari).
         self.rng = rng
         self.gamma = gamma
-        self.epsilon_one = epsilon_one
         self.episode_number = 0
         self.prev_state = None
         self.prev_action = None
 
          # this many iterations of value iteration ensures convergence
-        self.num_value_iter = math.ceil(np.log(1/(self.epsilon_one * (1 - self.gamma))) / (1 - self.gamma))
+        self.num_value_iter = num_value_iter
 
         self.rmax = max_reward
         self.s_a_threshold = s_a_threshold
