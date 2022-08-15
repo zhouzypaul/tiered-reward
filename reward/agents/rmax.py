@@ -221,7 +221,6 @@ class RMaxAgent(Learns):
             rng=rng,
             gamma=mdp.discount_rate,
             s_a_threshold=2,
-            epsilon_one=0.99,
             max_reward=self.rmax,
             custom_q_init=None,
         )
