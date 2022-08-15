@@ -17,13 +17,14 @@ class QLearning(MSDMQLearning):
     def __init__(
         self, 
         num_steps: int,
+        learning_rate: float = 0.9,
         rand_choose: float = 0,
         initial_q: float = 1e10,
         seed: int = 0,
     ):
         super().__init__(
             episodes=None, 
-            step_size=1, 
+            step_size=learning_rate, 
             rand_choose=rand_choose, 
             initial_q=initial_q,
             seed=seed, 

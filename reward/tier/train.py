@@ -14,13 +14,13 @@ from reward.utils import create_log_dir
 from reward import kvlogger
 
 
-def train_on_env(env, agent_name, num_steps, num_seeds, initial_value, multiprocessing=True, verbose=False, seed=0):
+def train_on_env(env, agent_name, num_steps, num_seeds, initial_value, learning_rate, multiprocessing=True, verbose=False, seed=0):
     """
     train on one specific environment, with one agent
     """
     if multiprocessing:
         agents = [
-            make_agent(agent_name, seed=s, num_steps=num_steps, optimistic_value=initial_value)
+            make_agent(agent_name, seed=s, num_steps=num_steps, optimistic_value=initial_value, learning_rate=learning_rate)
             for s in range(num_seeds)
         ]
         results = run_multiprocessing_learning(
@@ -28,7 +28,7 @@ def train_on_env(env, agent_name, num_steps, num_seeds, initial_value, multiproc
             agents=agents,
         )
     else:
-        agent = make_agent(agent_name, seed, num_steps, optimistic_value=initial_value)
+        agent = make_agent(agent_name, seed, num_steps, optimistic_value=initial_value, learning_rate=learning_rate)
         result = run_learning(env, agent)
         results = [result]
 
@@ -42,7 +42,7 @@ def train_on_env(env, agent_name, num_steps, num_seeds, initial_value, multiproc
 
     return results
 
-def make_agent(agent_name, seed, num_steps, optimistic_value):
+def make_agent(agent_name, seed, num_steps, optimistic_value, learning_rate):
     """
     create the learning agent
     """
@@ -50,6 +50,7 @@ def make_agent(agent_name, seed, num_steps, optimistic_value):
         agent = QLearning(
             num_steps=num_steps,
             rand_choose=0,
+            learning_rate=learning_rate,
             initial_q=float(optimistic_value),
             seed=seed,
         )
@@ -226,6 +227,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_seeds", type=int, default=10, help="number of seeds to use for multiprocessing")
 
     # hyperparams
+    parser.add_argument("--lr", type=float, default=0.9, help="learning rate for q learning")
     parser.add_argument("--initial_value", "-i", type=float, default=1e5, help="during learning, values are initialized to this value")
     parser.add_argument("--gamma", "-g", type=float, default=0.90, help="discount rate")
     parser.add_argument("--delta", "-d", type=float, default=0.1, help="tier offset for reward")
@@ -240,20 +242,35 @@ if __name__ == "__main__":
     for tier in args.tiers:
 
         # saving dir
-        saving_dir = os.path.join('results', f"{args.env}-{args.agent}-initial-{args.initial_value}", f"{tier}-tier")
+        experiment_name = f"{args.env}-{args.agent}"
+        experiment_name += f"-initial-{args.initial_value}"
+        experiment_name += f"-lr-{args.lr}"
+        saving_dir = os.path.join('results', experiment_name, f"{tier}-tier")
         create_log_dir(saving_dir, remove_existing=True)
 
         # make env
         env, tier_env, tier_pbs_env = make_env(args.env, tier, args.gamma, args.delta)
         
         # training
-        results = train_on_env(env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, initial_value=args.initial_value, verbose=args.verbose)
+        training_params = {
+            "agent_name": args.agent,
+            "num_steps": args.steps,
+            "seed": args.seed,
+            "num_seeds": args.num_seeds,
+            "initial_value": args.initial_value,
+            "learning_rate": args.lr,
+            "verbose": args.verbose,
+        }
+
+        results = train_on_env(env, **training_params)
         print('original reward')
         print([res.TimeAtGoal for res in results])
-        tiered_results = train_on_env(tier_env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, initial_value=args.initial_value, verbose=args.verbose)
+
+        tiered_results = train_on_env(tier_env, **training_params)
         print('tiered reward')
         print([res.TimeAtGoal for res in tiered_results])
-        tiered_pbs_results = train_on_env(tier_pbs_env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, initial_value=args.initial_value, verbose=args.verbose)
+
+        tiered_pbs_results = train_on_env(tier_pbs_env, **training_params)
         print('Tier-based shaping reward')
         print([res.TimeAtGoal for res in tiered_pbs_results])
 

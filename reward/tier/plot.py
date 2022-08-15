@@ -12,7 +12,7 @@ def plot_flag_grid_learning_results(results_dir, gamma=0.9):
     the plot is averaged across different random seeds
     """
     csv_path = os.path.join(results_dir, 'progress.csv')
-    assert os.path.exists(csv_path)
+    assert os.path.exists(csv_path), csv_path
 
     df = pd.read_csv(csv_path)
     df = df[df.Episode <= 160]  # zoom in on earlier episodes
@@ -27,6 +27,8 @@ def plot_flag_grid_learning_results(results_dir, gamma=0.9):
     plt.title(r'Flag Grid: $\gamma=$' + str(gamma))
     plt.xlabel('Episode')
     plt.ylabel('Steps Taken to Reach Goal')
+    # plt.ylim(0, 700)
+    # plt.legend(loc="upper right")
     save_path = os.path.join(os.path.dirname(results_dir), f'flag_grid_{gamma}.png')
     plt.savefig(save_path)
     print(f'saved to {save_path}')
