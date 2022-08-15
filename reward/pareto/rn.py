@@ -125,9 +125,9 @@ def plot_policy_termination_prob(env_name, gamma, num_steps, verbose=False):
     make three policies and compare their termination probabilities
     """
     colors = {
-        'R': '#eb3434',
-        'G': '#25a814',
-        'B': '#3440eb',
+        'R': 'r',
+        'G': 'g',
+        'B': 'b',
         'up': '#7d34eb',
         'left': 'c',
         'right': 'y',
@@ -139,45 +139,55 @@ def plot_policy_termination_prob(env_name, gamma, num_steps, verbose=False):
         'B': (-1, -0.9, 0),
     }
 
-    for r_name, r in rewards.items():
-        # compute
-        mdp, policy = make_policy(env_name, gamma, *r)
-        state_dist = get_state_distribution(mdp, policy, num_steps)
-        goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
-        lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])  # (nsteps,)
-        # plot 
-        plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors[r_name], label=f"{r_name}")
-        plt.plot(range(1, num_steps+1), lava_probs-1, '-.', color=colors[r_name])
-        plt.fill_between(range(1, num_steps+1), goal_probs, lava_probs-1, color=colors[r_name], alpha=0.5)
+    # RBG plot 
+    r_mdp, r_policy = make_policy(env_name, gamma, *rewards['R'])
+    g_mdp, g_policy = make_policy(env_name, gamma, *rewards['G'])
+    b_mdp, b_policy = make_policy(env_name, gamma, *rewards['B'])
+    r_state_dist = get_state_distribution(r_mdp, r_policy, num_steps)
+    g_state_dist = get_state_distribution(g_mdp, g_policy, num_steps)
+    b_state_dist = get_state_distribution(b_mdp, b_policy, num_steps)
+    r_goal_probs = _accumulate_state_distribution(r_state_dist[:, GOAL])
+    g_goal_probs = _accumulate_state_distribution(g_state_dist[:, GOAL])
+    b_goal_probs = _accumulate_state_distribution(b_state_dist[:, GOAL])
+    r_lava_probs = _accumulate_state_distribution(r_state_dist[:, LAVA])
+    g_lava_probs = _accumulate_state_distribution(g_state_dist[:, LAVA])
+    b_lava_probs = _accumulate_state_distribution(b_state_dist[:, LAVA])
+
+    x = range(1, num_steps + 1)
+    alpha = 0.6
+    plt.fill_between(x, r_goal_probs, g_goal_probs, facecolor="r", alpha=alpha, label=r'R')
+    plt.fill_between(x, g_goal_probs, b_goal_probs, facecolor="y", alpha=alpha, label=r'R $\cap$ G')
+    plt.fill_between(x, b_goal_probs, b_lava_probs-1, facecolor="#112596", alpha=alpha, label=r'R $\cap$ G $\cap$ B')
+    plt.fill_between(x, b_lava_probs-1, r_lava_probs-1, facecolor="y", alpha=alpha)
+    plt.fill_between(x, r_lava_probs-1, g_lava_probs-1, facecolor="g", alpha=alpha, label=r'       G')
     
     plt.legend(loc='upper left')
     plt.title(f'Comparing Policies')
     plt.xlabel('Step')
     plt.ylabel(r'$o_t - 1$                                      $p_t$')
     plt.ylim((-1.05, 1.05))
-    plt.xticks(range(1, num_steps+1))
+    plt.xticks(x)
     save_path = f'results/{env_name}/RGB_prob.png'
     plt.savefig(save_path)
     print(f'plot saved to {save_path}')
     plt.close()
 
-    r_red = rewards['R']
-    mdp, policy = make_policy(env_name, gamma, *r_red)
-    state_dist = get_state_distribution(mdp, policy, num_steps)
-    goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
-    lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])  # (nsteps,)
-    plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors['R'], label=f"R")
-    plt.plot(range(1, num_steps+1), lava_probs-1, '-.', color=colors['R'])
-    plt.fill_between(range(1, num_steps+1), goal_probs, lava_probs-1, color=colors['R'], alpha=0.5)
-    for direction in ['left', 'right']:
-        policy = make_one_direction_policy(mdp, direction)
-        state_dist = get_state_distribution(mdp, policy, num_steps)
-        goal_probs = _accumulate_state_distribution(state_dist[:, GOAL])
-        lava_probs = _accumulate_state_distribution(state_dist[:, LAVA])  # (nsteps,)
-        plt.plot(range(1, num_steps+1), goal_probs, '-', color=colors[direction], label=f"{direction}")
-        plt.plot(range(1, num_steps+1), lava_probs-1, '-.', color=colors[direction])
-        plt.fill_between(range(1, num_steps+1), goal_probs, lava_probs-1, color=colors[direction], alpha=0.5)
-    
+    # one direction policy plot
+    left_policy = make_one_direction_policy(r_mdp, direction='left')
+    right_policy = make_one_direction_policy(r_mdp, direction='right')
+    left_state_dist = get_state_distribution(r_mdp, left_policy, num_steps)
+    right_state_dist = get_state_distribution(r_mdp, right_policy, num_steps)
+    left_goal_probs = _accumulate_state_distribution(left_state_dist[:, GOAL])
+    right_goal_probs = _accumulate_state_distribution(right_state_dist[:, GOAL])
+    left_lava_probs = _accumulate_state_distribution(left_state_dist[:, LAVA])
+    right_lava_probs = _accumulate_state_distribution(right_state_dist[:, LAVA])
+
+    plt.fill_between(x, r_goal_probs, right_goal_probs, facecolor="r", alpha=alpha, label=r'R')
+    plt.fill_between(x, right_goal_probs, left_goal_probs, facecolor="#804000", alpha=alpha, label=r'R $\cap$ right')
+    plt.fill_between(x, left_goal_probs, right_lava_probs-1, facecolor="#ff9200", alpha=alpha, label=r'R $\cap$ right $\cap$ left')
+    plt.fill_between(x, right_lava_probs-1, r_lava_probs-1, facecolor="#800080", alpha=alpha, label=r'R $\cap$             left')
+    plt.fill_between(x, r_lava_probs-1, left_lava_probs-1, facecolor="c", alpha=alpha, label=r'                   left')
+
     plt.legend(loc='upper left')
     plt.title(f'Comparing Policies')
     plt.xlabel('Step')
