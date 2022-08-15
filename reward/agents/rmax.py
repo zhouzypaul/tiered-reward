@@ -22,7 +22,7 @@ class RMax():
                 rng=random,
                 gamma=0.9, 
                 s_a_threshold=3, 
-                num_value_iter=200, 
+                max_num_value_iter=200, 
                 max_reward=1.0, 
                 custom_q_init=None):
         self.states = list(states)
@@ -34,7 +34,7 @@ class RMax():
         self.prev_action = None
 
          # this many iterations of value iteration ensures convergence
-        self.num_value_iter = num_value_iter
+        self.max_num_value_iter = max_num_value_iter
 
         self.rmax = max_reward
         self.s_a_threshold = s_a_threshold
@@ -112,9 +112,11 @@ class RMax():
         assert np.all(empirical_transition_mat.sum(axis=-1) == 1)
 
         # compute the update for every (s, a), but only apply the ones that needed with a mask
-        for _ in range(self.num_value_iter):
+        for i in range(self.max_num_value_iter):
             v = np.max(self.q_func, axis=-1)
             new_q = empirical_reward_mat + self.gamma * np.einsum("san,n->sa", empirical_transition_mat, v)
+            if np.all(np.abs(self.q_func[mask] - new_q[mask]) < 1e-4):
+                break
             self.q_func[mask] = new_q[mask]
     
     @cached_property
