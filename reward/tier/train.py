@@ -14,13 +14,13 @@ from reward.utils import create_log_dir
 from reward import kvlogger
 
 
-def train_on_env(env, agent_name, num_steps, num_seeds, multiprocessing=True, verbose=False, seed=0):
+def train_on_env(env, agent_name, num_steps, num_seeds, initial_value, multiprocessing=True, verbose=False, seed=0):
     """
     train on one specific environment, with one agent
     """
     if multiprocessing:
         agents = [
-            make_agent(agent_name, seed=s, num_steps=num_steps)
+            make_agent(agent_name, seed=s, num_steps=num_steps, optimistic_value=initial_value)
             for s in range(num_seeds)
         ]
         results = run_multiprocessing_learning(
@@ -28,7 +28,7 @@ def train_on_env(env, agent_name, num_steps, num_seeds, multiprocessing=True, ve
             agents=agents,
         )
     else:
-        agent = make_agent(agent_name, seed, num_steps)
+        agent = make_agent(agent_name, seed, num_steps, optimistic_value=initial_value)
         result = run_learning(env, agent)
         results = [result]
 
@@ -42,22 +42,21 @@ def train_on_env(env, agent_name, num_steps, num_seeds, multiprocessing=True, ve
 
     return results
 
-def make_agent(agent_name, seed, num_steps):
+def make_agent(agent_name, seed, num_steps, optimistic_value):
     """
     create the learning agent
     """
-    optimistic_value = 0.
     if agent_name == 'qlearning':
         agent = QLearning(
             num_steps=num_steps,
             rand_choose=0,
-            initial_q=optimistic_value,
+            initial_q=float(optimistic_value),
             seed=seed,
         )
     elif agent_name == 'rmax':
         agent = RMaxAgent(
             num_steps=num_steps,
-            rmax=optimistic_value,
+            rmax=float(optimistic_value),
             seed=seed,
         )
     else:
@@ -227,6 +226,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_seeds", type=int, default=10, help="number of seeds to use for multiprocessing")
 
     # hyperparams
+    parser.add_argument("--initial_value", "-i", type=float, default=1e5, help="during learning, values are initialized to this value")
     parser.add_argument("--gamma", "-g", type=float, default=0.90, help="discount rate")
     parser.add_argument("--delta", "-d", type=float, default=0.1, help="tier offset for reward")
 
@@ -240,20 +240,20 @@ if __name__ == "__main__":
     for tier in args.tiers:
 
         # saving dir
-        saving_dir = os.path.join('results', f"{args.env}-{args.agent}", f"{tier}-tier")
+        saving_dir = os.path.join('results', f"{args.env}-{args.agent}-initial-{args.initial_value}", f"{tier}-tier")
         create_log_dir(saving_dir, remove_existing=True)
 
         # make env
         env, tier_env, tier_pbs_env = make_env(args.env, tier, args.gamma, args.delta)
         
         # training
-        results = train_on_env(env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
+        results = train_on_env(env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, initial_value=args.initial_value, verbose=args.verbose)
         print('original reward')
         print([res.TimeAtGoal for res in results])
-        tiered_results = train_on_env(tier_env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
+        tiered_results = train_on_env(tier_env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, initial_value=args.initial_value, verbose=args.verbose)
         print('tiered reward')
         print([res.TimeAtGoal for res in tiered_results])
-        tiered_pbs_results = train_on_env(tier_pbs_env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, verbose=args.verbose)
+        tiered_pbs_results = train_on_env(tier_pbs_env, agent_name=args.agent, num_steps=args.steps, seed=args.seed, num_seeds=args.num_seeds, initial_value=args.initial_value, verbose=args.verbose)
         print('Tier-based shaping reward')
         print([res.TimeAtGoal for res in tiered_pbs_results])
 
@@ -278,6 +278,6 @@ if __name__ == "__main__":
     # plot results
     if len(args.tiers) == 1:
         assert args.env == 'flag_grid'
-        plot_flag_grid_learning_results(os.path.join('results', f"{args.env}-{args.agent}", f"{args.tiers[0]}-tier"), args.gamma)
+        plot_flag_grid_learning_results(saving_dir, args.gamma)
     else:
-        compare_goal_hitting_stat_with_different_tiers(os.path.join('results', f"{args.env}-{args.agent}"), args.tiers)
+        compare_goal_hitting_stat_with_different_tiers(os.path.dirname(saving_dir), args.tiers)
