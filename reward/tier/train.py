@@ -46,7 +46,7 @@ def make_agent(agent_name, seed, num_steps):
     """
     create the learning agent
     """
-    optimistic_value = 1e5
+    optimistic_value = 0.
     if agent_name == 'qlearning':
         agent = QLearning(
             num_steps=num_steps,
