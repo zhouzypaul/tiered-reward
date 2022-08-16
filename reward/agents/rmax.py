@@ -1,4 +1,3 @@
-import math
 import random
 from functools import cached_property
 
@@ -33,7 +32,7 @@ class RMax():
         self.prev_state = None
         self.prev_action = None
 
-         # this many iterations of value iteration ensures convergence
+        # this many iterations of value iteration ensures convergence
         self.max_num_value_iter = max_num_value_iter
 
         self.rmax = max_reward

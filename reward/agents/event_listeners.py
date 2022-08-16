@@ -50,6 +50,7 @@ class NumGoalsHit(TDLearningEventListener):
 
 
 class EpisodicReward(TDLearningEventListener):
+    """record the episodic reward from one training run"""
     def __init__(self):
         self.episode_rewards = {}
         self.curr_ep_rewards = 0
@@ -65,6 +66,7 @@ class EpisodicReward(TDLearningEventListener):
 
 
 class Seed(TDLearningEventListener):
+    """record the seed of the environment"""
     def __init__(self):
         self.seed = None
     def end_of_timestep(self, local_vars):

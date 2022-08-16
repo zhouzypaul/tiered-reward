@@ -1,5 +1,8 @@
 # reward
 
+## requirements
+Python 3.8+
+
 ## running
 plot termination probability for pareto rewards:
 ```python

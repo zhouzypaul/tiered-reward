@@ -3,8 +3,9 @@ from matplotlib import colors
 from matplotlib import cm as cmx
 from matplotlib.patches import Rectangle
 from msdm.domains.gridworld.plotting import get_contrast_color
+from msdm.algorithms import ValueIteration
 
-from reward.msdm_utils import get_ordered_state_action_list, ModifiedValueIteration
+from reward.msdm_utils import get_ordered_state_action_list
 
 
 def plot_grid_reward(gw, plot_name_prefix, results_dir, reward_vec=None, plot_over_walls=False):
@@ -69,7 +70,7 @@ def visualize_grid_world_and_policy(gw, plot_name_prefix, results_dir, policy=No
         plt.close()
 
     # plot the value function and policy
-    value_iter = ModifiedValueIteration()
+    value_iter = ValueIteration()
     planning_result = value_iter.plan_on(gw)
     if policy is None:
         policy = planning_result.policy

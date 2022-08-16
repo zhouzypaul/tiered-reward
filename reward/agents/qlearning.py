@@ -11,8 +11,7 @@ class QLearning(MSDMQLearning):
     basically the same as msdm.algorithms.QLearning
     except that:
         1. this agent trains for a fixed nubmer of steps instead of episodes
-        2. fully greedy, and learning rate of 1
-        3. optimistically initialize the Q values to be be a very large number
+        2. fully greedy
     """
     def __init__(
         self, 
@@ -37,18 +36,6 @@ class QLearning(MSDMQLearning):
             NumGoalsHit(),
             EpisodeLength(),
         ]
-
-    # def _check_q_convergence(self, mdp, q):
-    #     """
-    #     iterate through all (s, a) and check if they satisfy the Bellman optimality equation
-    #     """
-    #     states = mdp.state_list()
-    #     actions = mdp.action_list()
-    #     for s in states:
-    #         for a in actions:
-    #             next_states = mdp.next_state_dist(s, a).support
-    #             for ns in next_states:
-    #                 r = mdp.reward(s, a, ns)
     
     def _training(self, mdp, rng, event_listeners):
         q = self._initial_q_table(mdp)
