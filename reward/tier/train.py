@@ -295,6 +295,6 @@ if __name__ == "__main__":
     # plot results
     if len(args.tiers) == 1:
         assert args.env == 'flag_grid'
-        plot_flag_grid_learning_results(saving_dir, args.gamma)
+        plot_flag_grid_learning_results(saving_dir, args.gamma, args.initial_value)
     else:
         compare_goal_hitting_stat_with_different_tiers(os.path.dirname(saving_dir), args.tiers)

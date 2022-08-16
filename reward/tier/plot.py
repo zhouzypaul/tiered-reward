@@ -5,7 +5,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 
-def plot_flag_grid_learning_results(results_dir, gamma=0.9):
+def plot_flag_grid_learning_results(results_dir, gamma=0.9, q_init=0):
     """
     find the progress.csv inside results_dir and plot:
         1. the episodic lengths during learning
@@ -24,7 +24,7 @@ def plot_flag_grid_learning_results(results_dir, gamma=0.9):
         hue='Reward Type',
         style='Reward Type',
     )
-    plt.title(r'Flag Grid: $\gamma=$' + str(gamma))
+    plt.title(r'Flag Grid: $\gamma=$' + str(gamma) + r', $Q_{init} = $' + str(q_init))
     plt.xlabel('Episode')
     plt.ylabel('Steps Taken to Reach Goal')
     # plt.ylim(0, 700)
