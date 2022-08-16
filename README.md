@@ -4,7 +4,7 @@ This is the code for the paper Specifying Behavior Preference with Tiered Reward
 ## requirements
 Python 3.8+
 
-## set up
+## set up and library dependencies
 ```bash
 python -m venv env
 source env/bin/activate
