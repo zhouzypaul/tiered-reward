@@ -171,6 +171,8 @@ def train_agent_batch_with_evaluation(
 ):
     """
     Basically the same as pfrl's method, but we add a custom logger and log additonal stats
+    This function will output two log files: progress.csv and progress_eval.csv
+    See reward/atari/plot.py for how to interpret and plot these results
     
     Train an agent in a batch environment.
 

@@ -149,7 +149,8 @@ See https://github.com/numpy/numpy/issues/12793 for details.
 
 class VectorFrameStack(PFRLVectorFrameStack):
     """
-    same as pfrl's, except in reset() make it take in **kwargs. This is so that arguments for reward wrappers could be passed through
+    same as pfrl's, except in reset() make it take in **kwargs. 
+    This is so that arguments for reward wrappers could be passed through
     
     VectorEnv analog to pfrl.wrappers.atari_wrappers.FrameStack.
 

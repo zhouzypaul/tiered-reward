@@ -1,4 +1,3 @@
-from genericpath import isdir
 import os
 
 import pandas
