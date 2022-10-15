@@ -4,6 +4,25 @@ import gym
 import numpy as np
 
 
+def get_k_tiered_reward(i_tier, total_num_tiers, H, delta):
+    """
+    k-tiered reward as defined in the paper
+    what's the reward for the i-the tier
+    tier          reward
+    k-1             0
+    k-2           H * r_k-1 - delta
+    k-3           H * r_k-2 - delta
+    ...
+    Note that we start indexing the tiers from 0
+    """
+    if i_tier >= total_num_tiers:
+        raise ValueError
+    elif i_tier == total_num_tiers - 1:
+        return 0
+    else:
+        return H * get_k_tiered_reward(i_tier + 1, total_num_tiers, H, delta) - delta
+
+
 class TierRewardWrapper(gym.Wrapper):
     """
     modify the reward() function to make the reward tiered
@@ -38,18 +57,12 @@ class TierRewardWrapper(gym.Wrapper):
         """
         what's the reward for the i-the tier
         tier          reward
-        0             0
-        1             H^0
-        2             H^1 + delta
-        k             H^(k-1) + (H^k-2 +...+ H^0)) * delta
+        k             0
+        k-1           H * r_k - delta
+        k-2           H * r_k-1 - delta
+        ...
         """
-        if tier == 0:
-            return 0
-        elif tier == 1:
-            return 1
-        else:
-            return self.h ** (tier-1) + self.delta * (self.h **(tier-1) - 1) / (self.h - 1)
-        
+        return get_k_tiered_reward(tier, self.num_tiers, self.h, self.delta)
 
     def reward(self, reward, info):
         raise NotImplementedError
@@ -69,7 +82,6 @@ class BreakoutTierReward(TierRewardWrapper):
         Green - 4 points       Aqua - 1 point           Blue - 1 point
     We modify the reward to be:
         tiers are defined in terms of the number of bricks hit
-        the lowest tier has 0 point, each tier would increase the reward by *H* times + delta
     """
     num_total_bricks = 18 * 6 * 2
 
@@ -116,7 +128,6 @@ class FreewayTierReward(TierRewardWrapper):
         tiers are defined in terms of the agent's y position (which car lane it's in)
         the final tier is at the maximum y_position, because we want to encourage the agent to get
         there instead of infinitely sicking around the the goal position and not getting there
-        the lowest tier has 0 point, each tier would increase the reward by *H* times + delta
     """
     y_max = 177  # after this, the agent is transitioned back to y_min
     y_min = 6
@@ -185,7 +196,7 @@ class BoxingTierReward(PongTierReward):
     the original reward is:
         -1 for every hit you take, and +1 for every hit you make
     we modify the reward to be:
-        tiers are defined purely in ters of the agent's score
+        tiers are defined purely in terms of the agent's score
     """
     points_per_tier = 4
 
@@ -210,12 +221,7 @@ class AsterixTierReward(TierRewardWrapper):
         (through experimentatio there seems to be reward other than these)
     we modify the reward to be:
         tiers are defined exactly as the 5 tiers as in the original reward
-        but the reward value changes:
-        nothing     0
-        Cauldron    1
-        Helment     H + delta
-        Shield      H(H+delta) + delta = H^2 + (H+1)delta
-        Lamp        H^3 + (H^2+H+1)delta
+        but the reward value changes
     """
     def _get_tier(self, reward):
         if reward <= 0:
@@ -328,3 +334,22 @@ def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
         raise NotImplementedError
         
     return env
+
+
+if __name__ == "__main__":
+    # for testing the k-tier reward
+    H = 1/(1-0.9)
+    delta = 0.1
+
+    assert get_k_tiered_reward(0, 1, H, delta) == 0
+    try:
+        get_k_tiered_reward(1, 1, H, delta)
+    except ValueError:
+        print('ValueError raised as expected')
+
+    k1 = get_k_tiered_reward(0, 5, H, delta)
+    k2 = get_k_tiered_reward(1, 5, H, delta)
+    k3 = get_k_tiered_reward(2, 5, H, delta)
+    k4 = get_k_tiered_reward(3, 5, H, delta)
+    k5 = get_k_tiered_reward(4, 5, H, delta)
+    print(k1, k2, k3, k4, k5)
