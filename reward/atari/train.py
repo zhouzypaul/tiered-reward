@@ -384,12 +384,12 @@ def main():
 
     # training settings
     parser.add_argument(
-        "--agent", type=str, default="DQN", choices=["DQN", "DoubleDQN", "PAL"]
+        "--agent", type=str, default="DoubleDQN", choices=["DQN", "DoubleDQN", "PAL"]
     )
     parser.add_argument(
         "--arch",
         type=str,
-        default="nature",
+        default="doubledqn",
         choices=["nature", "nips", "dueling", "doubledqn"],
     )
     parser.add_argument(
@@ -421,9 +421,6 @@ def main():
 
     args = parser.parse_args()
 
-    # process args
-    args.env = args.env + 'NoFrameskip-v4'
-
     # Set a random seed used in PFRL.
     utils.set_random_seed(args.seed)
 
@@ -432,10 +429,13 @@ def main():
     logging.basicConfig(level=args.log_level, stream=sys.stdout)
 
     # saving dir
-    experiment_name = f"{args.env}-{args.num_tiers}-tiers"
+    experiment_name = f"{args.env}"
     if args.original_reward:
         experiment_name += "-original-reward"
-    args.outdir = create_log_dir(os.path.join(args.outdir, experiment_name, f"seed_{args.seed}"), remove_existing=True, log_git=True)
+    args.outdir = create_log_dir(os.path.join(args.outdir, experiment_name, f"{args.num_tiers}-tiers", f"seed_{args.seed}"), remove_existing=True, log_git=True)
+
+    # process args
+    args.env = args.env + 'NoFrameskip-v4'
 
     # agent
     sample_env = make_env(args.env, seed=0, num_tiers=args.num_tiers, max_frames=args.max_frames, test=False)

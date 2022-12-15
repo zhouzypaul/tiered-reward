@@ -12,3 +12,7 @@ python -m reward.atari.train --env ENV -t TIER [options]
 python -m reward.atari.plot -l loading_dir
 ```
 currently the supported atari environments are: `['Breakout', 'Pong', 'Freeway', 'Boxing', 'Asterix', 'Battlezone']`
+
+`Pong` has exactly 22 tiers 
+`Boxing` has exactly 15 tiers
+`Asterix` has exactly 5 tiers
