@@ -355,6 +355,8 @@ def make_eval_logger(log_dir):
 def main():
     parser = argparse.ArgumentParser()
     # experiment settings
+    parser.add_argument("--experiment_name", "-e", type=str,
+                        help='Name used to save the results in')
     parser.add_argument("--env", type=str, default="Breakout")
     parser.add_argument("--steps", type=int, default=2 * 10**7)
     parser.add_argument("--num-tiers", "-t", type=int, default=15,
@@ -429,7 +431,7 @@ def main():
     logging.basicConfig(level=args.log_level, stream=sys.stdout)
 
     # saving dir
-    experiment_name = f"{args.env}"
+    experiment_name = args.experiment_name if args.experiment_name is not None else f"{args.env}"
     if args.original_reward:
         experiment_name += "-original-reward"
     args.outdir = create_log_dir(os.path.join(args.outdir, experiment_name, f"{args.num_tiers}-tiers", f"seed_{args.seed}"), remove_existing=True, log_git=True)

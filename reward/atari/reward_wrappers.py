@@ -347,9 +347,9 @@ if __name__ == "__main__":
     except ValueError:
         print('ValueError raised as expected')
 
-    k1 = get_k_tiered_reward(0, 5, H, delta)
-    k2 = get_k_tiered_reward(1, 5, H, delta)
-    k3 = get_k_tiered_reward(2, 5, H, delta)
-    k4 = get_k_tiered_reward(3, 5, H, delta)
-    k5 = get_k_tiered_reward(4, 5, H, delta)
+    k1 = get_k_tiered_reward(0, 5, H, delta)  # -111.1
+    k2 = get_k_tiered_reward(1, 5, H, delta)  # -11.1
+    k3 = get_k_tiered_reward(2, 5, H, delta)  # -1.1
+    k4 = get_k_tiered_reward(3, 5, H, delta)  # -0.1
+    k5 = get_k_tiered_reward(4, 5, H, delta)  # 0
     print(k1, k2, k3, k4, k5)
