@@ -28,7 +28,7 @@ def make_env(env_id, seed, max_frames, num_tiers=15, original_reward=False, test
     env = atari_wrappers.wrap_deepmind(
         env,
         episode_life=not test,
-        clip_rewards=not test,
+        clip_rewards=False,
         frame_stack=False,  # because we are doing vector frame stack
         scale=False,
         fire_reset=True,
