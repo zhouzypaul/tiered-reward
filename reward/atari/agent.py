@@ -75,7 +75,7 @@ def parse_agent(agent):
     return {"DQN": agents.DQN, "DoubleDQN": agents.DoubleDQN, "PAL": agents.PAL}[agent]
 
 
-def make_agent(args, n_actions):
+def make_agent(args, n_actions, gamma):
     q_func = parse_arch(args.arch, n_actions)
 
     if args.noisy_net_sigma is not None:
@@ -119,7 +119,7 @@ def make_agent(args, n_actions):
         opt,
         rbuf,
         gpu=args.gpu,
-        gamma=0.90,
+        gamma=gamma,
         explorer=explorer,
         replay_start_size=args.replay_start_size,
         target_update_interval=args.target_update_interval,

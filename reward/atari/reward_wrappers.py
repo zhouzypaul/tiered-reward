@@ -27,14 +27,14 @@ class TierRewardWrapper(gym.Wrapper):
     """
     modify the reward() function to make the reward tiered
     """
-    def __init__(self, env, num_tiers, gamma, keep_original_reward=False):
+    def __init__(self, env, num_tiers, gamma, delta, keep_original_reward=False):
         super().__init__(env)
         self.num_tiers = num_tiers
         self.gamma = gamma
         self.keep_original_reward = keep_original_reward
 
         self.h = 1 / (1-gamma)
-        self.delta = 0.1  # good tier r = H * prev tier + delta 
+        self.delta = delta  # good tier r = H * prev tier + delta 
         self.tiers_hitting_count = np.zeros(num_tiers, dtype=np.int32)
     
     def reset_hitting_count(self):
@@ -295,13 +295,13 @@ class BattleZoneTierReward(TierRewardWrapper):
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
 
-def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
+def wrap_tier_rewards(env, num_tiers, gamma, delta, keep_original_reward=False):
     env_id = (env.spec.id).lower()
     if 'breakout' in env_id:
-        env = BreakoutTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+        env = BreakoutTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta, keep_original_reward=keep_original_reward)
 
     elif 'freeway' in env_id:
-        env = FreewayTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+        env = FreewayTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta, keep_original_reward=keep_original_reward)
 
     elif 'pong' in env_id:
         try:
@@ -309,7 +309,7 @@ def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
         except AssertionError:
             num_tiers = 22
             print(f'Warning: Pong has 22 tiers, but you specified {num_tiers} tiers. MODIFYING IT TO BE 22 TIERS.')
-        env = PongTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+        env = PongTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta, keep_original_reward=keep_original_reward)
     
     elif 'boxing' in env_id:
         try:
@@ -317,7 +317,7 @@ def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
         except AssertionError:
             num_tiers = 15
             print(f'Warning: Boxing has 15 tiers, but you specified {num_tiers} tiers. MODIFYING IT TO BE 15 TIERS.')
-        env = BoxingTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+        env = BoxingTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta, keep_original_reward=keep_original_reward)
 
     elif 'asterix' in env_id:
         try:
@@ -325,10 +325,10 @@ def wrap_tier_rewards(env, num_tiers, gamma, keep_original_reward=False):
         except AssertionError:
             num_tiers = 5
             print(f'Warning: Asterix has 5 tiers, but you specified {num_tiers} tiers. MODIFYING IT TO BE 5 TIERS.')
-        env = AsterixTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+        env = AsterixTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta, keep_original_reward=keep_original_reward)
     
     elif 'battlezone' in env_id:
-        env = BattleZoneTierReward(env, num_tiers=num_tiers, gamma=gamma, keep_original_reward=keep_original_reward)
+        env = BattleZoneTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta, keep_original_reward=keep_original_reward)
 
     else:
         raise NotImplementedError

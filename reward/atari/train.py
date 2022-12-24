@@ -357,24 +357,24 @@ def main():
     # experiment settings
     parser.add_argument("--experiment_name", "-e", type=str,
                         help='Name used to save the results in')
+    parser.add_argument("--outdir", type=str, default="results",
+                        help="Directory path to save output files. If it does not exist, it will be created.")
     parser.add_argument("--env", type=str, default="Breakout")
     parser.add_argument("--steps", type=int, default=2 * 10**7)
-    parser.add_argument("--num-tiers", "-t", type=int, default=15,
+    parser.add_argument("--num-tiers", "-t", type=int, default=5,
                         help="Number of tiers to use in the custom reward function")
     parser.add_argument("--original-reward", "-o", action="store_true", default=False,
                         help="Use the original reward function")
     parser.add_argument("--num-envs", type=int, default=32)
+    parser.add_argument("--debug", action="store_true", default=False, help="Debug Mode.")
+
+    # hyperparams
+    parser.add_argument("--gamma", type=float, default=0.99,
+                        help="Discount factor of MDP.")
+    parser.add_argument("--delta", type=float, default=0.1,
+                        help="offset used in the custom reward function")
 
     # configs
-    parser.add_argument(
-        "--outdir",
-        type=str,
-        default="results",
-        help=(
-            "Directory path to save output files."
-            " If it does not exist, it will be created."
-        ),
-    )
     parser.add_argument("--seed", type=int, default=0, help="Random seed [0, 2 ** 31)")
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument(
@@ -440,19 +440,20 @@ def main():
     args.env = args.env + 'NoFrameskip-v4'
 
     # agent
-    sample_env = make_env(args.env, seed=0, num_tiers=args.num_tiers, max_frames=args.max_frames, test=False)
-    agent = make_agent(args, n_actions=sample_env.action_space.n)
+    sample_env = make_env(args.env, gamma=args.gamma, delta=args.delta, seed=0, num_tiers=args.num_tiers, max_frames=args.max_frames, test=False)
+    agent = make_agent(args, n_actions=sample_env.action_space.n, gamma=args.gamma)
 
     # Set different random seeds for different subprocesses.
     # If seed=0 and processes=4, subprocess seeds are [0, 1, 2, 3].
     # If seed=1 and processes=4, subprocess seeds are [4, 5, 6, 7].
-    process_seeds = np.arange(args.num_envs, dtype=int) + args.seed * args.num_envs
+    num_envs = 1 if args.debug else args.num_envs
+    process_seeds = np.arange(num_envs, dtype=int) + args.seed * num_envs
     assert process_seeds.max() < 2**32
 
     train_agent_batch_with_evaluation(
         agent=agent,
-        env=make_batch_env(args.env, args.num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=args.original_reward, test=False),
-        eval_env=make_batch_env(args.env, args.num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=True, test=True),
+        env=make_batch_env(args.env, args.gamma, args.delta, num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=args.original_reward, test=False),
+        eval_env=make_batch_env(args.env, args.gamma, args.delta, num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=True, test=True),
         steps=args.steps,
         eval_n_steps=None,
         eval_n_episodes=args.eval_n_runs,
