@@ -228,6 +228,7 @@ def train_agent_batch_with_evaluation(
             actions = agent.batch_act(obss)
             # o_{t+1}, r_{t+1}
             obss, rs, dones, infos = env.step(actions)
+            print(rs)
             episode_r += rs
             episode_original_r += np.array([info['original_reward'] for info in infos])
             episode_len += 1

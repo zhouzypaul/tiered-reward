@@ -5,7 +5,7 @@ import pfrl
 from atariari.benchmark.wrapper import AtariARIWrapper
 from pfrl.wrappers import atari_wrappers
 
-from reward.atari.reward_wrappers import wrap_tier_rewards
+from reward.atari.reward_wrappers import wrap_tier_rewards, NegativeRewardWrapper
 from reward.atari.vec_env import VectorFrameStack, MultiprocessVectorEnv
 
 
@@ -23,7 +23,7 @@ def make_env(env_id, gamma, delta, seed, max_frames, num_tiers=15, original_rewa
         # env is not supported by AtariARIWrapper
         pass
 
-    env = wrap_tier_rewards(env, num_tiers=num_tiers, gamma=gamma, delta=delta, keep_original_reward=original_reward)
+    env = NegativeRewardWrapper(env, num_tiers)
 
     env = atari_wrappers.wrap_deepmind(
         env,

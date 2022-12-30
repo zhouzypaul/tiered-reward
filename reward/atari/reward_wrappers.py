@@ -4,6 +4,26 @@ import gym
 import numpy as np
 
 
+class NegativeRewardWrapper(gym.Wrapper):
+    """
+    modify the reward() function to make the reward negative just by subtracting
+    a constant offset
+
+    This is used in experiments to see if negative reward will make DQN unstable
+    """
+    def __init__(self, env, num_tiers, offset=5000) -> None:
+        super().__init__(env)
+        self.offset = offset
+        self.tiers_hitting_count = np.zeros(num_tiers, dtype=np.int32)  # useless
+
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        info['original_reward'] = reward
+        info['tiers_hitting_count'] = self.tiers_hitting_count
+        reward -= self.offset
+        return obs, reward, done, info
+
+
 def get_k_tiered_reward(i_tier, total_num_tiers, H, delta):
     """
     k-tiered reward as defined in the paper
