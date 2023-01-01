@@ -23,6 +23,9 @@ class NegativeRewardWrapper(gym.Wrapper):
         reward -= self.offset
         return obs, reward, done, info
 
+    def reset(self, reset_count=False, **kwargs):
+        return self.env.reset(**kwargs)
+
 
 def get_k_tiered_reward(i_tier, total_num_tiers, H, delta):
     """
