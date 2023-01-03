@@ -11,16 +11,18 @@ class NegativeRewardWrapper(gym.Wrapper):
 
     This is used in experiments to see if negative reward will make DQN unstable
     """
-    def __init__(self, env, num_tiers, offset=5000) -> None:
+    def __init__(self, env, num_tiers, offset=5000, keep_original_reward=False):
         super().__init__(env)
         self.offset = offset
+        self.keep_original_reward = keep_original_reward
         self.tiers_hitting_count = np.zeros(num_tiers, dtype=np.int32)  # useless
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
         info['original_reward'] = reward
         info['tiers_hitting_count'] = self.tiers_hitting_count
-        reward -= self.offset
+        if not self.keep_original_reward:
+            reward -= self.offset
         return obs, reward, done, info
 
     def reset(self, reset_count=False, **kwargs):
