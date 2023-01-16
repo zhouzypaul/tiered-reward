@@ -23,7 +23,7 @@ def make_env(env_id, gamma, delta, seed, max_frames, num_tiers=15, original_rewa
         # env is not supported by AtariARIWrapper
         pass
 
-    env = wrap_tier_rewards(env, num_tiers=num_tiers, gamma=gamma, delta=delta, keep_original_reward=original_reward, normalize_reward=normalize_reward)
+    env = wrap_tier_rewards(env, num_tiers=num_tiers, gamma=gamma, delta=delta, keep_original_reward=original_reward, normalize_reward=not test and normalize_reward)
 
     env = atari_wrappers.wrap_deepmind(
         env,
