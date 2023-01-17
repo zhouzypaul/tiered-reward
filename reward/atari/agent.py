@@ -9,6 +9,8 @@ from pfrl.initializers.lecun_normal import init_lecun_normal
 from pfrl.q_functions import DiscreteActionValueHead, DuelingDQN
 from pfrl import replay_buffers
 
+from .ppo import PPO, ImpalaCNN
+
 
 class SingleSharedBias(nn.Module):
     """Single shared bias used in the Double DQN paper.
@@ -67,15 +69,50 @@ def parse_arch(arch, n_actions):
         )
     elif arch == "dueling":
         return DuelingDQN(n_actions)
+    elif arch == "impala":
+        return ImpalaCNN(
+        obs_space=(4, 84, 84),
+        num_outputs=n_actions,
+    )
     else:
         raise RuntimeError("Not supported architecture: {}".format(arch))
 
 
 def parse_agent(agent):
-    return {"DQN": agents.DQN, "DoubleDQN": agents.DoubleDQN, "PAL": agents.PAL}[agent]
+    return {"DQN": agents.DQN, "DoubleDQN": agents.DoubleDQN, "PAL": agents.PAL, "PPO": PPO}[agent]
 
 
 def make_agent(args, n_actions, gamma):
+    if args.agent == "PPO":
+        assert args.arch == "impala"
+        return make_ppo_agent(args, n_actions, gamma)
+    else:
+        return make_q_agent(args, n_actions, gamma)
+
+
+def make_ppo_agent(args, n_actions, gamma):
+    policy = parse_arch(args.arch, n_actions)
+    opt = torch.optim.Adam(policy.parameters(), lr=5e-4, eps=1e-5)
+    ppo_agent = PPO(
+        model=policy,
+        optimizer=opt,
+        gpu=0,
+        gamma=gamma,
+        lambd=0.95,
+        phi=lambda s: np.array(s).astype(np.float32),
+        value_func_coef=0.5,
+        entropy_coef=0.01,
+        update_interval=64 * args.num_envs,  # nsteps is the number of parallel-env steps till an update
+        minibatch_size=args.batch_size,
+        epochs=3,
+        clip_eps=0.2,
+        clip_eps_vf=0.2,
+        max_grad_norm=0.5,
+    )
+    return ppo_agent
+
+
+def make_q_agent(args, n_actions, gamma):
     q_func = parse_arch(args.arch, n_actions)
 
     if args.noisy_net_sigma is not None:

@@ -386,13 +386,13 @@ def main():
 
     # training settings
     parser.add_argument(
-        "--agent", type=str, default="DoubleDQN", choices=["DQN", "DoubleDQN", "PAL"]
+        "--agent", type=str, default="DoubleDQN", choices=["DQN", "DoubleDQN", "PAL", "PPO"]
     )
     parser.add_argument(
         "--arch",
         type=str,
         default="doubledqn",
-        choices=["nature", "nips", "dueling", "doubledqn"],
+        choices=["nature", "nips", "dueling", "doubledqn", "impala"],
     )
     parser.add_argument(
         "--max-frames",
