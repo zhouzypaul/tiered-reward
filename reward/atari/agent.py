@@ -3,13 +3,16 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import pfrl
+from pfrl.policies import SoftmaxCategoricalHead
+from pfrl.agents import PPO
 from pfrl import agents, explorers
 from pfrl import nn as pnn
 from pfrl.initializers.lecun_normal import init_lecun_normal
 from pfrl.q_functions import DiscreteActionValueHead, DuelingDQN
 from pfrl import replay_buffers
 
-from .ppo import PPO, ImpalaCNN
+from .ppo import PPO as MyPPO, ImpalaCNN
 
 
 class SingleSharedBias(nn.Module):
@@ -82,34 +85,68 @@ def parse_agent(agent):
     return {"DQN": agents.DQN, "DoubleDQN": agents.DoubleDQN, "PAL": agents.PAL, "PPO": PPO}[agent]
 
 
-def make_agent(args, n_actions, gamma):
+def make_agent(args, n_actions, obs_space, gamma):
     if args.agent == "PPO":
-        assert args.arch == "impala"
-        return make_ppo_agent(args, n_actions, gamma)
+        return make_ppo_agent(args, n_actions, obs_space, gamma)
     else:
         return make_q_agent(args, n_actions, gamma)
 
 
-def make_ppo_agent(args, n_actions, gamma):
-    policy = parse_arch(args.arch, n_actions)
-    opt = torch.optim.Adam(policy.parameters(), lr=5e-4, eps=1e-5)
-    ppo_agent = PPO(
-        model=policy,
-        optimizer=opt,
-        gpu=0,
-        gamma=gamma,
-        lambd=0.95,
-        phi=lambda s: np.array(s).astype(np.float32),
-        value_func_coef=0.5,
-        entropy_coef=0.01,
-        update_interval=64 * args.num_envs,  # nsteps is the number of parallel-env steps till an update
-        minibatch_size=args.batch_size,
-        epochs=3,
-        clip_eps=0.2,
-        clip_eps_vf=0.2,
-        max_grad_norm=0.5,
+def make_ppo_agent(args, n_actions, obs_space, gamma):
+    def lecun_init(layer, gain=1):
+        if isinstance(layer, (nn.Conv2d, nn.Linear)):
+            pfrl.initializers.init_lecun_normal(layer.weight, gain)
+            nn.init.zeros_(layer.bias)
+        else:
+            pfrl.initializers.init_lecun_normal(layer.weight_ih_l0, gain)
+            pfrl.initializers.init_lecun_normal(layer.weight_hh_l0, gain)
+            nn.init.zeros_(layer.bias_ih_l0)
+            nn.init.zeros_(layer.bias_hh_l0)
+        return layer
+
+    obs_n_channels = obs_space.low.shape[0]
+    model = nn.Sequential(
+        lecun_init(nn.Conv2d(obs_n_channels, 32, 8, stride=4)),
+        nn.ReLU(),
+        lecun_init(nn.Conv2d(32, 64, 4, stride=2)),
+        nn.ReLU(),
+        lecun_init(nn.Conv2d(64, 64, 3, stride=1)),
+        nn.ReLU(),
+        nn.Flatten(),
+        lecun_init(nn.Linear(3136, 512)),
+        nn.ReLU(),
+        pfrl.nn.Branched(
+            nn.Sequential(
+                lecun_init(nn.Linear(512, n_actions), 1e-2),
+                SoftmaxCategoricalHead(),
+            ),
+            lecun_init(nn.Linear(512, 1)),
+        ),
     )
-    return ppo_agent
+
+    opt = torch.optim.Adam(model.parameters(), lr=args.lr, eps=1e-5)
+
+    def phi(x):
+        # Feature extractor
+        return np.asarray(x, dtype=np.float32) / 255
+
+    agent = PPO(  # hyperparams from pfrl 
+        model,
+        opt,
+        gpu=0,
+        phi=phi,
+        update_interval=128 * 8,
+        minibatch_size=32 * 8,
+        epochs=4,
+        clip_eps=0.1,
+        clip_eps_vf=None,
+        standardize_advantages=True,
+        entropy_coef=1e-2,
+        recurrent=False,
+        max_grad_norm=0.5,
+        gamma=gamma,
+    )
+    return agent
 
 
 def make_q_agent(args, n_actions, gamma):

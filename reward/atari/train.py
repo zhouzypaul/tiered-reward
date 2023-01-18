@@ -441,7 +441,7 @@ def main():
 
     # agent
     sample_env = make_env(args.env, gamma=args.gamma, delta=args.delta, seed=0, num_tiers=args.num_tiers, max_frames=args.max_frames, test=False)
-    agent = make_agent(args, n_actions=sample_env.action_space.n, gamma=args.gamma)
+    agent = make_agent(args, n_actions=sample_env.action_space.n, obs_space=sample_env.observation_space, gamma=args.gamma)
 
     # Set different random seeds for different subprocesses.
     # If seed=0 and processes=4, subprocess seeds are [0, 1, 2, 3].

@@ -52,5 +52,5 @@ def make_batch_env(env_id, gamma, delta, num_envs, seeds, max_frames, num_tiers,
             for idx, env in enumerate(range(num_envs))
         ]
     )
-    vec_env = VectorFrameStack(vec_env, 4)
+    # vec_env = VectorFrameStack(vec_env, 4)
     return vec_env
