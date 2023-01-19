@@ -30,7 +30,7 @@ def make_env(env_id, gamma, delta, seed, max_frames, num_tiers=15, original_rewa
         episode_life=not test,
         clip_rewards=False,
         frame_stack=False,  # because we are doing vector frame stack
-        scale=True,
+        scale=False,
         fire_reset=True,
     )
 
