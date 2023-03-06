@@ -53,9 +53,9 @@ def plot_different_reward_comparison(base_dir, num_tiers):
         df = pandas.concat(dfs, ignore_index=True)
         return df
     
-    tiered_reward_df = _gather_dataframes(base_dir)
+    tiered_reward_df = _gather_dataframes(os.path.join(base_dir, f"{num_tiers}-tiers"))
     tiered_reward_df['reward_type'] = 'tiered'
-    original_reward_df = _gather_dataframes(original_reward_dir)
+    original_reward_df = _gather_dataframes(os.path.join(original_reward_dir, f"{num_tiers}-tiers"))
     original_reward_df['reward_type'] = 'original'
 
     data = pandas.concat([tiered_reward_df, original_reward_df], ignore_index=True)
