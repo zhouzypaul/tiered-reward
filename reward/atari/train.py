@@ -228,6 +228,7 @@ def train_agent_batch_with_evaluation(
             actions = agent.batch_act(obss)
             # o_{t+1}, r_{t+1}
             obss, rs, dones, infos = env.step(actions)
+            print(rs)  # TODO: remove 
             episode_r += rs
             episode_original_r += np.array([info['original_reward'] for info in infos])
             episode_len += 1
@@ -365,6 +366,8 @@ def main():
                         help="Number of tiers to use in the custom reward function")
     parser.add_argument("--original-reward", "-o", action="store_true", default=False,
                         help="Use the original reward function")
+    parser.add_argument("--normalize-reward", "-n", action="store_true", default=False,
+                        help="Normalize the reward function so that its absolute value is in [0, 1]")
     parser.add_argument("--num-envs", type=int, default=32)
     parser.add_argument("--debug", action="store_true", default=False, help="Debug Mode.")
 
@@ -452,8 +455,8 @@ def main():
 
     train_agent_batch_with_evaluation(
         agent=agent,
-        env=make_batch_env(args.env, args.gamma, args.delta, num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=args.original_reward, test=False),
-        eval_env=make_batch_env(args.env, args.gamma, args.delta, num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=True, test=True),
+        env=make_batch_env(args.env, args.gamma, args.delta, num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=args.original_reward, normalize_reward=args.normalize_reward, test=False),
+        eval_env=make_batch_env(args.env, args.gamma, args.delta, num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=True, normalize_reward=args.normalize_reward, test=True),
         steps=args.steps,
         eval_n_steps=None,
         eval_n_episodes=args.eval_n_runs,
