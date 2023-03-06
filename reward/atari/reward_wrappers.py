@@ -23,6 +23,35 @@ def get_k_tiered_reward(i_tier, total_num_tiers, H, delta):
         return H * get_k_tiered_reward(i_tier + 1, total_num_tiers, H, delta) - delta
 
 
+class NormalizedRewardWrapper(gym.Wrapper):
+    """
+    Normalize the reward so that its absolute value is between [0, 1]
+    For TieredReward that is designed to be negative, this wrapper should normalize the
+    reward values to be between [-1, 0]
+    """
+    def __init__(self, env, max_r_value):
+        super().__init__(env)
+        self.max_r_value = max_r_value
+    
+    def reward(self, r):
+        """
+        divide by max reward value
+        """
+        new_r = r / self.max_r_value
+        assert -1 <= new_r <= 1
+        return new_r
+    
+    def reset(self, **kwargs):
+        """
+        need to override this method so that args can be passed to TierRewardWrapper
+        """
+        return self.env.reset(**kwargs)
+    
+    def step(self, action):
+        obs, reward, done, info = self.env.step(action)
+        reward = self.reward(reward)
+        return obs, reward, done, info
+
 class TierRewardWrapper(gym.Wrapper):
     """
     modify the reward() function to make the reward tiered
@@ -295,7 +324,7 @@ class BattleZoneTierReward(TierRewardWrapper):
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
 
-def wrap_tier_rewards(env, num_tiers, gamma, delta, keep_original_reward=False):
+def wrap_tier_rewards(env, num_tiers, gamma, delta, keep_original_reward=False, normalize_reward=False):
     env_id = (env.spec.id).lower()
     if 'breakout' in env_id:
         env = BreakoutTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta, keep_original_reward=keep_original_reward)
@@ -332,6 +361,12 @@ def wrap_tier_rewards(env, num_tiers, gamma, delta, keep_original_reward=False):
 
     else:
         raise NotImplementedError
+    
+    # normalize reward
+    if normalize_reward:
+        max_reward = get_k_tiered_reward(0, total_num_tiers=num_tiers, H=1/(1-gamma), delta=delta)
+        max_reward = abs(max_reward)
+        env = NormalizedRewardWrapper(env, max_r_value=max_reward)
         
     return env
 
