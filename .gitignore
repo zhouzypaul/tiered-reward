@@ -4,6 +4,7 @@
 
 # results
 results/
+storage/
 log/
 
 # Byte-compiled / optimized / DLL files
