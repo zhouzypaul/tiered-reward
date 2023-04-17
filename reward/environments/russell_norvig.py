@@ -1,6 +1,7 @@
 import copy
 from collections import defaultdict
 
+import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Arrow, Circle
 from matplotlib import colors
@@ -49,6 +50,16 @@ def make_russell_norvig_grid(
         elif loc_to_feature.get(ns, '') == '.' or loc_to_feature.get(ns, '') == 's':
             return step_cost
         raise Exception("Invalid state for reward", ns)
+
+    def reward_vector(env):
+        """
+        a vector a length n_states
+        """
+        reward_vec = np.zeros((len(env.state_list), ))
+        for s in env.state_list:
+            reward_vec[env.state_index[s]] = env.reward(None, None, s)
+        return reward_vec
+
 
     # valid locations are those on the board, excluding the wall location at (1, 1)
     def is_valid_loc(s):
@@ -109,6 +120,8 @@ def make_russell_norvig_grid(
         (0, -1): "down",
         (0, 1): "up"
     }
+
+    gw.reward_vector = reward_vector(gw)
 
     return gw
 

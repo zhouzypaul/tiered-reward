@@ -1,7 +1,6 @@
-import math
+from collections import defaultdict
 
 import numpy as np
-
 from frozendict import frozendict
 from msdm.domains import GridWorld
 from msdm.core.utils.gridstringutils import string_to_element_array
@@ -10,27 +9,18 @@ from msdm.core.distributions.dictdistribution import \
     DictDistribution
 
 
-class SimpleGrid(GridWorld):
+class SlipperyGrid(GridWorld):
     """
-    create a 2-D square gridworld, where the agent starts at the bottom left state,
-    and the goal is at the top right state. This gridworld is deterministic, for
-    now. 
+    2-D grid world where the agent can move in all 4 directions. With each move, the agent
+    has some probability of moving to that direction, while slipping to either side. 
 
-    This environment seeks to extend the OneDimChain into 2D.
-
-    the start and end state are both (r, c) coordinate tuples. r is the row number,
-    indexed from the top from 0, and c is the column number, indexed from the left
-    from 0. E.g:
-    (0, 0), (0, 1), (0, 2)
-    (1, 0), (1, 1), (1, 2)
+    There is a goal state g, and may be a lava state x.
     """
     def __init__(self,
-                num_states=25,  # number of states, must be a square number
-                start_state=None,
-                goal_state=None,
                 tile_array=None,
+                tile_distance=None,
                 feature_rewards=None,
-                absorbing_features=("g",),
+                absorbing_features=("g", "x"),
                 wall_features=("#",),
                 default_features=(".",),
                 initial_features=("s",),
@@ -39,27 +29,6 @@ class SimpleGrid(GridWorld):
                 discount_rate=1.0,
                 custom_rewards=None,
                 ):
-        
-        # info
-        self.num_states = num_states
-        assert num_states == int(math.sqrt(num_states))**2
-        num_side_states = math.isqrt(num_states)
-        self.num_side_states = num_side_states
-    
-        # create the tile 
-        if tile_array is None:
-            tile_array = np.array([['.'] * num_side_states] * num_side_states)
-        if start_state is None:  # start state
-            tile_array[-1][0] = 's'
-        else:
-            tile_array[start_state[0]][start_state[1]] = 's'
-        if goal_state is None:  # goal state
-            tile_array[0][-1] = 'g'
-        else:
-            tile_array[goal_state[0]][goal_state[1]] = 'g'
-        # convert of list of list of strings
-        tile_array = list(map(lambda x: ''.join(x), tile_array.tolist()))
-
         self.tile_array = tile_array
         parseParams = {"colsep": "", "rowsep": "\n", "elementsep": "."}
         if not isinstance(tile_array, str):
@@ -72,11 +41,14 @@ class SimpleGrid(GridWorld):
         absorbingStates = set()
         initStates = set()
         locFeatures = {}
+        locDistances = {}
         for y_, row in enumerate(elementArray):
             y = len(elementArray) - y_ - 1
             for x, elements in enumerate(row):
                 s = frozendict({'x': x, 'y': y})
                 states.append(s)
+                if tile_distance:
+                    locDistances[s] = tile_distance[y_][x]
                 if len(elements) > 0:
                     f = elements[0]
                     locFeatures[s] = f
@@ -104,6 +76,7 @@ class SimpleGrid(GridWorld):
         self._absorbingStates = sorted(absorbingStates, key=hash_state)
         self._walls = sorted(walls, key=hash_state)
         self._locFeatures = locFeatures
+        self.location_distances = locDistances
         self.success_prob = success_prob
         if feature_rewards is None:
             feature_rewards = {'g': 0}
@@ -112,12 +85,13 @@ class SimpleGrid(GridWorld):
         self.discount_rate = discount_rate
         self._height = len(elementArray)
         self._width = len(elementArray[0])
+        self.absorbing_features = absorbing_features
 
         # custom reward
         self.custom_rewards = custom_rewards
 
     def is_terminal(self, s):
-        return self.location_features.get(s, '') == 'g'
+        return self.location_features.get(s, '') in self.absorbing_features
 
     def next_state_dist(self, s, a) -> FiniteDistribution:
         if self.is_terminal(s):
@@ -146,16 +120,16 @@ class SimpleGrid(GridWorld):
                 slip_s1 = frozendict({'x': x, 'y': y-1})
                 slip_s2 = frozendict({'x': x, 'y': y+1})
             
-            if slip_s1 not in self._states:
+            if slip_s1 not in self._states or slip_s1 in self.walls:
                 slip_s1 = s
-            if slip_s2 not in self._states:
+            if slip_s2 not in self._states or slip_s2 in self.walls:
                 slip_s2 = s
 
-            bdist = DictDistribution({
-                ns: self.success_prob,
-                slip_s1: (1 - self.success_prob) / 2,
-                slip_s2: (1 - self.success_prob) / 2,
-            })
+            bdist_dict = defaultdict(float)
+            bdist_dict[ns] += self.success_prob
+            bdist_dict[slip_s1] += (1-self.success_prob)/2
+            bdist_dict[slip_s2] += (1-self.success_prob)/2
+            bdist = DictDistribution(bdist_dict)
         else:
             bdist = DeterministicDistribution(ns)
 
@@ -164,14 +138,14 @@ class SimpleGrid(GridWorld):
     def reward(self, s, a, ns) -> float:
         if self.custom_rewards is None:
             # use default rewards
-            if self.is_terminal(s):
-                return self._featureRewards['g']
-            f = self._locFeatures.get(s, "")
+            f = self._locFeatures.get(ns, "")
+            if self.is_terminal(ns):
+                assert f in self.absorbing_features
             return self._featureRewards.get(f, self.step_cost)
         else:
             # use custom rewards
-            idx_s = self.state_index[s]
-            return self.custom_rewards[idx_s]
+            idx_ns = self.state_index[ns]
+            return self.custom_rewards[idx_ns]
     
     @property
     def reward_vector(self):
@@ -182,50 +156,78 @@ class SimpleGrid(GridWorld):
             # use default rewards
             reward_vec = np.zeros((len(self.state_list), ))
             for s in self.state_list:
-                # reward only depends on leaving at s
-                reward_vec[self.state_index[s]] = self.reward(s, None, None)
+                reward_vec[self.state_index[s]] = self.reward(None, None, s)
             return reward_vec
         else:
             # use custom rewards
             return self.custom_rewards
 
 
-def make_simple_grid(num_states, goal_reward, step_reward, discount_rate, start_state=None, goal_state=None, success_rate=1, custom_rewards=None):
+def make_slippery_grid(discount_rate, success_prob, step_cost, goal_reward, lava_penalty):
+    tile_array = [
+        's...',
+        '.x.x',
+        '...x',
+        'x..g',
+    ]
+    gw = SlipperyGrid(
+        tile_array=tile_array,
+        feature_rewards={
+            'g': goal_reward,
+            'x': lava_penalty,
+        },
+        absorbing_features=('g', 'x'),
+        step_cost=step_cost,
+        success_prob=success_prob,
+        discount_rate=discount_rate,
+    )
+    return gw
+
+
+def make_single_goal_square_grid(num_side_states, discount_rate, success_prob, step_cost, goal_reward, custom_reward=None):
     """
-    create a simple grid environment
+    make a square grid that's num_side_states * num_side_states
+    , where the agent starts at the bottom left corner, and the goa is top right corner
     """
-    grid_params = dict(
-        initial_features=('s',),  # start state
-        absorbing_features=('g',),  # goals
-        wall_features=('#',),  # walls
-        default_features=('.',),  # hallway
+    tile_array = [
+        '.' * (num_side_states-1) + 'g',
+    ] + [
+        '.' * num_side_states,
+    ] * (num_side_states-2) + [
+        's' + '.' * (num_side_states-1),
+    ]
+    gw = SlipperyGrid(
+        tile_array=tile_array,
         feature_rewards={
             'g': goal_reward,
         },
-        step_cost=step_reward,
-    )
-
-    chain = SimpleGrid(
-        **grid_params,
-        num_states=num_states,
+        absorbing_features=('g',),
+        step_cost=step_cost,
+        success_prob=success_prob,
         discount_rate=discount_rate,
-        start_state=start_state,
-        goal_state=goal_state,
-        success_prob=success_rate,
-        custom_rewards=custom_rewards,
+        custom_rewards=custom_reward,
     )
-
-    return chain
+    return gw
 
 
 if __name__ == "__main__":
-    # for testing this script
-    from pathlib import Path
-    from reward.environments.plot import visualize_grid_world_and_policy, plot_grid_reward
+    # for debugging
+    import matplotlib.pyplot as plt
+    # gw = make_slippery_grid(discount_rate=0.9, success_prob=0.5, step_cost=-0.1, goal_reward=1, lava_penalty=-1)
+    gw = make_single_goal_square_grid(num_side_states=5, discount_rate=0.9, success_prob=0.5, step_cost=-0.1, goal_reward=1)
+    gw.plot()
 
-    results_dir = Path('results').joinpath('simplegrid_plot')
-    results_dir.mkdir(exist_ok=True)
-    
-    chain = make_simple_grid(num_states=5, goal_reward=0, step_reward=-1, discount_rate=0.95, custom_rewards=None)
-    visualize_grid_world_and_policy(gw=chain, plot_name_prefix='simple_grid', results_dir=results_dir)
-    plot_grid_reward(gw=chain, plot_name_prefix='grid', results_dir=results_dir)
+    from msdm.algorithms import ValueIteration
+    vi = ValueIteration()
+    result = vi.plan_on(gw)
+    policy = result.policy
+
+    fig, axes = plt.subplots(2, 1)
+    gw.plot(ax=axes[0]).plot_state_map(result.valuefunc).title("Value Function")
+    gw.plot(ax=axes[1]).plot_policy(policy).title("Policy")
+
+    save_path = 'results/debug.png'
+    print('Saving to {}'.format(save_path))
+    plt.savefig(fname=save_path)
+
+    print(gw.state_list)
