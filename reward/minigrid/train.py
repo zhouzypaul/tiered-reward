@@ -3,6 +3,7 @@ import time
 import argparse
 import datetime
 import torch_ac
+import tensorboardX
 
 import reward.minigrid.utils as utils
 from reward.minigrid.utils import device
@@ -78,6 +79,7 @@ if __name__ == "__main__":
 
     txt_logger = utils.get_txt_logger(model_dir)
     csv_file, csv_logger = utils.get_csv_logger(model_dir)
+    tb_writer = tensorboardX.SummaryWriter(model_dir)
 
     # Log command and all script arguments
 
@@ -186,6 +188,9 @@ if __name__ == "__main__":
                 csv_logger.writerow(header)
             csv_logger.writerow(data)
             csv_file.flush()
+            
+            for field, value in zip(header, data):
+                tb_writer.add_scalar(field, value, num_frames)
 
         # Save status
 

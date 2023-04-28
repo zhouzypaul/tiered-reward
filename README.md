@@ -40,3 +40,12 @@ currently the supported atari environments are: `['Breakout', 'Pong', 'Freeway',
 `Pong` has exactly 22 tiers 
 `Boxing` has exactly 15 tiers
 `Asterix` has exactly 5 tiers
+
+training minigrid experiment
+```bash
+python3 -m reward.minigrid.train --algo ppo --env MiniGrid-DoorKey-5x5-v0 --model DoorKey --save-interval 10 --frames 80000
+python3 -m reward.minigrid.visualize --env MiniGrid-DoorKey-5x5-v0 --model DoorKey
+python3 -m reward.minigrid.evaluate --env MiniGrid-DoorKey-5x5-v0 --model DoorKey
+
+tensorboard --logdir storage/DoorKey/
+```
