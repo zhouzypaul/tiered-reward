@@ -6,6 +6,7 @@ import torch_ac
 import tensorboardX
 
 import reward.minigrid.utils as utils
+import reward.utils as general_utils
 from reward.minigrid.utils import device
 from reward.minigrid.model import ACModel
 
@@ -19,16 +20,16 @@ parser.add_argument("--algo", required=True,
                     help="algorithm to use: a2c | ppo (REQUIRED)")
 parser.add_argument("--env", required=True,
                     help="name of the environment to train on (REQUIRED)")
-parser.add_argument("--model", default=None,
-                    help="name of the model (default: {ENV}_{ALGO}_{TIME})")
+parser.add_argument("--experiment_name", "-e", default=None,
+                    help="name of the experiment (default: {ENV}_{ALGO}_{TIME}). Used to name the saving dir.")
 parser.add_argument("--seed", type=int, default=1,
                     help="random seed (default: 1)")
-parser.add_argument("--log-interval", type=int, default=1,
+parser.add_argument("--log-interval", type=int, default=10,
                     help="number of updates between two logs (default: 1)")
-parser.add_argument("--save-interval", type=int, default=10,
+parser.add_argument("--save-interval", type=int, default=50,
                     help="number of updates between two saves (default: 10, 0 means no saving)")
 parser.add_argument("--procs", type=int, default=16,
-                    help="number of processes (default: 16)")
+                    help="number of processes (default: 16). This is also the number of parallel envs.")
 parser.add_argument("--frames", type=int, default=10**7,
                     help="number of frames of training (default: 1e7)")
 
@@ -72,8 +73,9 @@ if __name__ == "__main__":
     date = datetime.datetime.now().strftime("%y-%m-%d-%H-%M-%S")
     default_model_name = f"{args.env}_{args.algo}_seed{args.seed}_{date}"
 
-    model_name = args.model or default_model_name
-    model_dir = utils.get_model_dir(model_name)
+    model_name = args.experiment_name or default_model_name
+    model_dir = utils.get_model_dir(model_name, args.seed)
+    general_utils.create_log_dir(model_dir, remove_existing=True)
 
     # Load loggers and Tensorboard writer
 
@@ -117,7 +119,6 @@ if __name__ == "__main__":
     txt_logger.info("Observations preprocessor loaded")
 
     # Load model
-
     acmodel = ACModel(obs_space, envs[0].action_space, args.mem, args.text)
     if "model_state" in status:
         acmodel.load_state_dict(status["model_state"])
