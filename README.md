@@ -44,8 +44,8 @@ currently the supported atari environments are: `['Breakout', 'Pong', 'Freeway',
 training minigrid experiment
 ```bash
 python3 -m reward.minigrid.train --algo ppo --env MiniGrid-DoorKey-5x5-v0 -e DoorKey --save-interval 10 --frames 1e7
-python3 -m reward.minigrid.visualize --env MiniGrid-DoorKey-5x5-v0 --model DoorKey
-python3 -m reward.minigrid.evaluate --env MiniGrid-DoorKey-5x5-v0 --model DoorKey
+python3 -m reward.minigrid.visualize --env MiniGrid-DoorKey-5x5-v0 -e DoorKey
+python3 -m reward.minigrid.evaluate --env MiniGrid-DoorKey-5x5-v0 -e DoorKey
 
 tensorboard --logdir storage/DoorKey/
 ```

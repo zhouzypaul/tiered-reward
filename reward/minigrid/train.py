@@ -9,6 +9,7 @@ import reward.minigrid.utils as utils
 import reward.utils as general_utils
 from reward.minigrid.utils import device
 from reward.minigrid.model import ACModel
+from reward.minigrid.minigrid_wrappers import environment_builder
 
 
 # Parse arguments
@@ -22,8 +23,8 @@ parser.add_argument("--env", required=True,
                     help="name of the environment to train on (REQUIRED)")
 parser.add_argument("--experiment_name", "-e", default=None,
                     help="name of the experiment (default: {ENV}_{ALGO}_{TIME}). Used to name the saving dir.")
-parser.add_argument("--seed", type=int, default=1,
-                    help="random seed (default: 1)")
+parser.add_argument("--seed", type=int, default=0,
+                    help="random seed (default: 0)")
 parser.add_argument("--log-interval", type=int, default=10,
                     help="number of updates between two logs (default: 1)")
 parser.add_argument("--save-interval", type=int, default=50,
@@ -100,7 +101,8 @@ if __name__ == "__main__":
 
     envs = []
     for i in range(args.procs):
-        envs.append(utils.make_env(args.env, args.seed + 10000 * i))
+        env = environment_builder(args.env, args.seed + 10000 * i, use_img_obs=True, reward_fn='original', grayscale=False, max_steps=None)
+        envs.append(env)
     txt_logger.info("Environments loaded\n")
 
     # Load training status
