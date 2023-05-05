@@ -67,6 +67,15 @@ class SparseRewardWrapper(Wrapper):
         return obs, float(reward > 0), terminated, truncated, info
 
 
+class StepPenaltyRewardWrapper(Wrapper):
+    """Return a reward of -1 for each step, and 0 for you reach the goal."""
+    
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        penalty_reward = 0 if reward > 0 else -1
+        return obs, penalty_reward, terminated, truncated, info
+
+
 class GrayscaleWrapper(ObservationWrapper):
     def observation(self, observation):
         observation = observation.mean(axis=0)[np.newaxis, :, :]
@@ -159,6 +168,10 @@ def environment_builder(
     # sparse reward
     if reward_fn == 'sparse':
         env = SparseRewardWrapper(env)
+    elif reward_fn == 'step_penalty':
+        env = StepPenaltyRewardWrapper(env)
+    else:
+        assert reward_fn == 'original'
 
     # grayscale
     if grayscale:

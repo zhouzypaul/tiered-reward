@@ -33,6 +33,8 @@ parser.add_argument("--procs", type=int, default=16,
                     help="number of processes (default: 16). This is also the number of parallel envs.")
 parser.add_argument("--frames", type=int, default=10**7,
                     help="number of frames of training (default: 1e7)")
+parser.add_argument("--reward-function", "-r", default="original",
+                    help="What kind of reward function to use for the environment", choices=['original', 'sparse', 'step_penalty'])
 
 # Parameters for main algorithm
 parser.add_argument("--epochs", type=int, default=4,
@@ -101,7 +103,7 @@ if __name__ == "__main__":
 
     envs = []
     for i in range(args.procs):
-        env = environment_builder(args.env, args.seed + 10000 * i, use_img_obs=True, reward_fn='original', grayscale=False, max_steps=None)
+        env = environment_builder(args.env, args.seed + 10000 * i, use_img_obs=True, reward_fn=args.reward_function, grayscale=False, max_steps=None)
         envs.append(env)
     txt_logger.info("Environments loaded\n")
 
