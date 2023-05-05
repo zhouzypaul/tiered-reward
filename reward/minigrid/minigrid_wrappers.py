@@ -139,11 +139,12 @@ def environment_builder(
     reward_fn='original',
     grayscale=True,
     max_steps=None,
+    render_mode=None,
 ):
     if max_steps is not None and max_steps > 0:
-        env = gym.make(level_name, max_steps=max_steps)
+        env = gym.make(level_name, max_steps=max_steps, render_mode=render_mode)
     else:
-        env = gym.make(level_name)
+        env = gym.make(level_name, render_mode=render_mode)
 
     # make observation fully observable
     env = FullyObsWrapper(env)
