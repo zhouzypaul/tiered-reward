@@ -42,7 +42,7 @@ print(f"Device: {device}\n")
 
 # Load environment
 
-env = environment_builder(args.env, args.seed, max_steps=1000, grayscale=False, render_mode="human")
+env = environment_builder(args.env, args.seed, max_steps=300, grayscale=False, render_mode="human")
 for _ in range(args.shift):
     env.reset()
 print("Environment loaded\n")
@@ -77,6 +77,7 @@ for episode in range(args.episodes):
 
         action = agent.get_action(obs)
         obs, reward, terminated, truncated, _ = env.step(action)
+        print(f"reward: {reward}, terminated: {terminated}, truncated: {truncated}")
         done = terminated | truncated
         agent.analyze_feedback(reward, done)
 

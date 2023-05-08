@@ -5,6 +5,7 @@ from torch_ac.utils.penv import ParallelEnv
 
 import reward.minigrid.utils as utils
 from reward.minigrid.utils import device
+from reward.minigrid.minigrid_wrappers import environment_builder
 
 
 # Parse arguments
@@ -12,8 +13,8 @@ from reward.minigrid.utils import device
 parser = argparse.ArgumentParser()
 parser.add_argument("--env", required=True,
                     help="name of the environment (REQUIRED)")
-parser.add_argument("--model", required=True,
-                    help="name of the trained model (REQUIRED)")
+parser.add_argument("--experiment_name", "-e", required=True,
+                    help="name of the experiment (REQUIRED)")
 parser.add_argument("--episodes", type=int, default=100,
                     help="number of episodes of evaluation (default: 100)")
 parser.add_argument("--seed", type=int, default=0,
@@ -44,14 +45,14 @@ if __name__ == "__main__":
 
     envs = []
     for i in range(args.procs):
-        env = utils.make_env(args.env, args.seed + 10000 * i)
+        env = environment_builder(args.env, args.seed, max_steps=1000, grayscale=False)
         envs.append(env)
     env = ParallelEnv(envs)
     print("Environments loaded\n")
 
     # Load agent
 
-    model_dir = utils.get_model_dir(args.model)
+    model_dir = utils.get_model_dir(args.experiment_name, args.seed)
     agent = utils.Agent(env.observation_space, env.action_space, model_dir,
                         argmax=args.argmax, num_envs=args.procs,
                         use_memory=args.memory, use_text=args.text)
