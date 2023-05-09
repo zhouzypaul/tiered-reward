@@ -8,7 +8,7 @@ import tensorboardX
 import reward.minigrid.utils as utils
 import reward.utils as general_utils
 from reward.minigrid.utils import device
-from reward.minigrid.model import ACModel
+from reward.minigrid.model import ACModel, ImpalaCNN
 from reward.minigrid.minigrid_wrappers import environment_builder
 
 
@@ -123,7 +123,8 @@ if __name__ == "__main__":
     txt_logger.info("Observations preprocessor loaded")
 
     # Load model
-    acmodel = ACModel(obs_space, envs[0].action_space, args.mem, args.text)
+    acmodel = ImpalaCNN(obs_space['image'], num_outputs=envs[0].action_space.n, use_memory=args.mem, use_text=args.text)
+    # acmodel = ACModel(obs_space, envs[0].action_space, args.mem, args.text)
     if "model_state" in status:
         acmodel.load_state_dict(status["model_state"])
     acmodel.to(device)
