@@ -1,9 +1,11 @@
-import math
 import pickle
+from abc import abstractmethod
+
 import numpy as np
 from PIL import Image
 import gymnasium as gym
 from gymnasium.core import Wrapper, ObservationWrapper
+
 from minigrid.wrappers import RGBImgObsWrapper, ImgObsWrapper, ReseedWrapper, FullyObsWrapper
 
 
@@ -58,22 +60,29 @@ class TransposeObsWrapper(ObservationWrapper):
         return observation.transpose((2, 0, 1))
 
 
-class SparseRewardWrapper(Wrapper):
-    """Return a reward of 1 when you reach the goal and 0 otherwise."""
-
+class RewardWrapper(Wrapper):
+    """change the reward, and log the original reward in a dictionary."""
     def step(self, action):
-        # minigrid discounts the reward with a step count - undo that here
         obs, reward, terminated, truncated, info = self.env.step(action)
-        return obs, float(reward > 0), terminated, truncated, info
-
-
-class StepPenaltyRewardWrapper(Wrapper):
-    """Return a reward of -1 for each step, and 0 for you reach the goal."""
+        info['original_reward'] = reward
+        r = self._modify_reward(reward, info)
+        return obs, r, terminated, truncated, info
     
-    def step(self, action):
-        obs, reward, terminated, truncated, info = self.env.step(action)
-        penalty_reward = 0 if reward > 0 else -1
-        return obs, penalty_reward, terminated, truncated, info
+    @abstractmethod
+    def _modify_reward(self, reward, info):
+        raise NotImplementedError
+
+
+class SparseRewardWrapper(RewardWrapper):
+    """Return a reward of 1 when you reach the goal and 0 otherwise."""
+    def _modify_reward(self, reward, info):
+        return float(reward > 0)
+
+
+class StepPenaltyRewardWrapper(RewardWrapper):
+    """Return a reward of -1 for each step, and 0 for you reach the goal."""
+    def _modify_reward(self, reward, info):
+        return 0 if reward > 0 else -1
 
 
 class GrayscaleWrapper(ObservationWrapper):
