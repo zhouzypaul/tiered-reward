@@ -1,10 +1,13 @@
-import math
 import pickle
+import functools
+
 import numpy as np
 from PIL import Image
 import gymnasium as gym
 from gymnasium.core import Wrapper, ObservationWrapper
+
 from minigrid.wrappers import RGBImgObsWrapper, ImgObsWrapper, ReseedWrapper, FullyObsWrapper
+from reward.minigrid.vec_env import MultiprocessVectorEnv
 
 
 class MinigridInfoWrapper(Wrapper):
@@ -15,17 +18,22 @@ class MinigridInfoWrapper(Wrapper):
         self._timestep = 0
 
         # Store the test-time start state when the environment is constructed
-        self.official_start_obs, self.official_start_info = self.reset()
+        # self.official_start_obs, self.official_start_info = self.reset()
 
     def reset(self):
         obs, info = self.env.reset()
         info = self._modify_info_dict(info)
-        return obs, info
+        return obs  #, info
 
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
         self._timestep += 1
         info = self._modify_info_dict(info, terminated, truncated)
+
+        # tiered reward stuff
+        info['original_reward'] = reward
+        info['tiers_hitting_count'] = np.zeros(5, dtype=np.int32)
+
         return obs, reward, terminated, truncated, info
 
     def _modify_info_dict(self, info, terminated=False, truncated=False):
@@ -143,12 +151,18 @@ def determine_is_door_open(env):
 
 def environment_builder(
     level_name='MiniGrid-Empty-8x8-v0',
-    seed=42,
+    seed=0,
     use_img_obs=True,
     reward_fn='original',
     grayscale=True,
     max_steps=None,
     render_mode=None,
+    original_reward=False,
+    normalize_reward=False,
+    test=False,
+    gamma=0.99,
+    delta=0.01,
+    num_tiers=1,
 ):
     if max_steps is not None and max_steps > 0:
         env = gym.make(level_name, max_steps=max_steps, render_mode=render_mode)
@@ -181,3 +195,17 @@ def environment_builder(
     env = MinigridInfoWrapper(env)
 
     return env
+
+
+def make_batch_env(env_id, gamma, delta, num_envs, seeds, max_steps, num_tiers, original_reward=False, normalize_reward=False, test=False):
+    if original_reward:
+        print('making environment with original reward function')
+    assert len(seeds) == num_envs
+    vec_env = MultiprocessVectorEnv(
+        [
+            # functools.partial(make_env, env_id, gamma, delta, seeds[idx], max_steps, num_tiers, original_reward, normalize_reward, test)
+            functools.partial(environment_builder, env_id, seeds[idx], True, 'original', False, max_steps, None, normalize_reward, normalize_reward, test, gamma, delta, num_tiers)
+            for idx, env in enumerate(range(num_envs))
+        ]
+    )
+    return vec_env

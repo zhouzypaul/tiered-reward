@@ -197,8 +197,8 @@ class ImpalaCNN(nn.Module, torch_ac.RecurrentACModel):
     def memory_size(self):
         return self.shape[0] * self.shape[1] * self.shape[2]
 
-    def forward(self, obs, memory):
-        x = obs.image
+    def forward(self, obs):
+        x = obs
         assert x.ndim == 4
         # x = obs / 255.0  # scale to 0-1
         x = x.permute(0, 3, 1, 2)  # NHWC => NCHW
@@ -209,11 +209,9 @@ class ImpalaCNN(nn.Module, torch_ac.RecurrentACModel):
         x = self.hidden_fc(x)
         x = torch.relu(x)
         logits = self.logits_fc(x)
-        if self.use_memory:
-            memory = logits  # NOTE: this is probably not correct
         dist = torch.distributions.Categorical(logits=logits)
         value = self.value_fc(x).squeeze(1)
-        return dist, value, memory
+        return dist, value
 
     def save_to_file(self, model_path):
         torch.save(self.state_dict(), model_path)
