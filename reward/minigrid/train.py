@@ -32,7 +32,7 @@ parser.add_argument("--save-interval", type=int, default=50,
                     help="number of updates between two saves (default: 10, 0 means no saving)")
 parser.add_argument("--procs", type=int, default=16,
                     help="number of processes (default: 16). This is also the number of parallel envs.")
-parser.add_argument("--frames", type=int, default=10**7,
+parser.add_argument("--frames", type=int, default=200_000,
                     help="number of frames of training (default: 1e7)")
 
 # Params for environment
@@ -88,8 +88,12 @@ if __name__ == "__main__":
     date = datetime.datetime.now().strftime("%y-%m-%d-%H-%M-%S")
     default_model_name = f"{args.env}_{args.algo}_seed{args.seed}_{date}"
 
-    model_name = args.experiment_name or default_model_name
-    model_dir = utils.get_model_dir(model_name, args.seed)
+    exp_name = args.experiment_name or default_model_name
+    if args.reward_function == 'tier':
+        sub_dir = f"{args.num_tiers}-tiers"
+    else:
+        sub_dir = args.reward_function
+    model_dir = utils.get_model_dir(exp_name, sub_dir, args.seed)
     general_utils.create_log_dir(model_dir, remove_existing=True)
 
     # Load loggers and Tensorboard writer
@@ -177,6 +181,7 @@ if __name__ == "__main__":
     num_frames = status["num_frames"]
     update = status["update"]
     start_time = time.time()
+    already_written_header = False
 
     while num_frames < args.frames:
         # Update model parameters
@@ -217,8 +222,9 @@ if __name__ == "__main__":
             header += ["return_" + key for key in return_per_episode.keys()]
             data += return_per_episode.values()
 
-            if status["num_frames"] == 0:
+            if not already_written_header:
                 csv_logger.writerow(header)
+                already_written_header = True
             csv_logger.writerow(data)
             csv_file.flush()
             

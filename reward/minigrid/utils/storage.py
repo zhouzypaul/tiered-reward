@@ -20,8 +20,8 @@ def get_storage_dir():
     return "storage"
 
 
-def get_model_dir(dir_name, seed):
-    return os.path.join(get_storage_dir(), dir_name, f"seed_{seed}")
+def get_model_dir(dir_name, sub_dir, seed):
+    return os.path.join(get_storage_dir(), dir_name, sub_dir, f"seed_{seed}")
 
 
 def get_status_path(model_dir):

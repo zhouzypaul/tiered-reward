@@ -13,6 +13,8 @@ pip3 install -r requirements.txt
 ```
 
 ## running
+
+### Tabular
 running Q-Learning/RMAX experiments on different grid worlds
 ```bash
 python3 -m reward.tier.train --env ENV_NAME -t 2 3 4 5 6 7 8 9 --num_seeds 300 --initial_value 1e5 --lr 0.9 --gamma 0.9
@@ -30,6 +32,8 @@ plot termination probability for pareto rewards:
 python -m reward.pareto [--options]
 ```
 
+### Atari
+
 training atari experiments
 ```python
 python -m reward.atari.train --env ENV -t TIER [options]
@@ -41,6 +45,8 @@ currently the supported atari environments are: `['Breakout', 'Pong', 'Freeway',
 `Boxing` has exactly 15 tiers
 `Asterix` has exactly 5 tiers
 
+### MiniGrid
+
 training minigrid experiment
 ```bash
 python3 -m reward.minigrid.train --algo ppo --env MiniGrid-DoorKey-5x5-v0 -e DoorKey --save-interval 10 --frames 1e7 --reward_function step_penalty
@@ -48,4 +54,9 @@ python3 -m reward.minigrid.visualize --env MiniGrid-DoorKey-5x5-v0 -e DoorKey
 python3 -m reward.minigrid.evaluate --env MiniGrid-DoorKey-5x5-v0 -e DoorKey
 
 tensorboard --logdir storage/DoorKey/
+```
+
+To comapre different reward learning curves
+```bash
+python3 -m reward.minigrid.plot -l LOADING_DIR
 ```
