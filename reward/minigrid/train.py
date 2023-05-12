@@ -34,8 +34,19 @@ parser.add_argument("--procs", type=int, default=16,
                     help="number of processes (default: 16). This is also the number of parallel envs.")
 parser.add_argument("--frames", type=int, default=10**7,
                     help="number of frames of training (default: 1e7)")
+
+# Params for environment
 parser.add_argument("--reward-function", "-r", default="original",
-                    help="What kind of reward function to use for the environment", choices=['original', 'sparse', 'step_penalty'])
+                    help="What kind of reward function to use for the environment", 
+                    choices=['original', 'sparse', 'step_penalty', 'tier'])
+parser.add_argument("--num-tiers", "-t", type=int, default=5,
+                    help="Number of tiers to use in the custom reward function")
+parser.add_argument("--normalize-reward", "-n", action="store_true", default=False,
+                    help="Normalize the reward function so that its absolute value is in [0, 1]")
+parser.add_argument("--gamma", type=float, default=0.99,
+                    help="Discount factor of MDP.")
+parser.add_argument("--delta", type=float, default=5,
+                    help="offset used in the custom reward function")
 
 # Parameters for main algorithm
 parser.add_argument("--epochs", type=int, default=4,
@@ -104,7 +115,19 @@ if __name__ == "__main__":
 
     envs = []
     for i in range(args.procs):
-        env = environment_builder(args.env, args.seed + 10000 * i, use_img_obs=True, reward_fn=args.reward_function, grayscale=False, max_steps=None)
+        env = environment_builder(
+            level_name=args.env,
+            seed=args.seed + 10000 * i,
+            gamma=args.gamma,
+            delta=args.delta,
+            num_tiers=args.num_tiers,
+            use_img_obs=True,
+            reward_fn=args.reward_function,
+            normalize_reward=args.normalize_reward,
+            grayscale=False,
+            max_steps=None,
+            render_mode=None
+        )
         envs.append(env)
     txt_logger.info("Environments loaded\n")
 
@@ -188,7 +211,7 @@ if __name__ == "__main__":
             data += [logs["entropy"], logs["value"], logs["policy_loss"], logs["value_loss"], logs["grad_norm"]]
 
             txt_logger.info(
-                "U {} | F {:06} | FPS {:04.0f} | D {} | rR:μσmM {:.2f} {:.2f} {:.2f} {:.2f} | oR:μσmM {:.2f} {:.2f} {:.2f} {:.2f} | F:μσmM {:.1f} {:.1f} {} {} | H {:.3f} | V {:.3f} | pL {:.3f} | vL {:.3f} | ∇ {:.3f}"
+                "U {} | F {:06} | FPS {:04.0f} | D {} | rR:μσmM {:.5f} {:.5f} {:.5f} {:.5f} | oR:μσmM {:.2f} {:.2f} {:.2f} {:.2f} | F:μσmM {:.1f} {:.1f} {} {} | H {:.3f} | V {:.3f} | pL {:.3f} | vL {:.3f} | ∇ {:.3f}"
                 .format(*data))
 
             header += ["return_" + key for key in return_per_episode.keys()]

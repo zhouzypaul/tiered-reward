@@ -1,12 +1,14 @@
-import pickle
+import math
+from functools import cached_property
 from abc import abstractmethod
 
 import numpy as np
 from PIL import Image
 import gymnasium as gym
 from gymnasium.core import Wrapper, ObservationWrapper
-
 from minigrid.wrappers import RGBImgObsWrapper, ImgObsWrapper, ReseedWrapper, FullyObsWrapper
+
+from reward.atari.reward_wrappers import get_k_tiered_reward
 
 
 class MinigridInfoWrapper(Wrapper):
@@ -61,7 +63,15 @@ class TransposeObsWrapper(ObservationWrapper):
 
 
 class RewardWrapper(Wrapper):
-    """change the reward, and log the original reward in a dictionary."""
+    """
+    change the reward, and log the original reward in a dictionary.
+    
+    NOTE: an environment should NOT use two wrappers that inherit this class.
+    Because that will mess with logging info['original_reward']
+    """
+    def reset(self, **kwargs):
+        return self.env.reset(**kwargs)
+    
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
         info['original_reward'] = reward
@@ -85,49 +95,122 @@ class StepPenaltyRewardWrapper(RewardWrapper):
         return 0 if reward > 0 else -1
 
 
+class NormalizeRewardWrapper(Wrapper):
+    """
+    Normalize rewrd so that its absoluate value is between [0, 1]
+    For TieredReward that is designed to be negative, this wrapper should normalize
+    reward values to be between [-1, 0]
+    """
+    def __init__(self, env, max_r_value):
+        super().__init__(env)
+        self.max_r_value = max_r_value
+
+    def reset(self, **kwargs):
+        return self.env.reset(**kwargs)
+    
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        r = self._modify_reward(reward, info)
+        return obs, r, terminated, truncated, info
+    
+    def _modify_reward(self, reward, info):
+        new_r = reward / self.max_r_value
+        assert -1 <= new_r <= 1, new_r
+        return new_r
+
+
+class TierRewardWrapper(Wrapper):
+    """
+    modify the reward() function to make the reward tiered
+    
+    Each class that follows this should have a _get_tier() method that determines
+    what tier the agent is in.
+    Then, it should implement the _modify_reward() method to return the tiered reward.
+    """
+    def __init__(self, env, num_tiers, gamma, delta):
+        super().__init__(env)
+        self.num_tiers = num_tiers
+        self.gamma = gamma
+
+        self.h = 1 / (1-gamma)
+        self.delta = delta  # good tier r = H * prev tier + delta 
+        self.tiers_hitting_count = np.zeros(num_tiers, dtype=np.int32)
+    
+    def reset_hitting_count(self):
+        """not used"""
+        self.tiers_hitting_count = np.zeros(self.num_tiers, dtype=np.int32)
+
+    def reset(self, reset_count=False, **kwargs):
+        if reset_count:
+            self.reset_hitting_count()
+        return self.env.reset(**kwargs)
+    
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        info['original_reward'] = reward
+        self.log_tier_hitting_count(info)
+        r = self._modify_reward(reward, info)
+        return obs, r, terminated, truncated, info
+    
+    def _get_tier_reward(self, tier):
+        """
+        what's the reward for the i-the tier
+        tier          reward
+        k             0
+        k-1           H * r_k - delta
+        k-2           H * r_k-1 - delta
+        ...
+        """
+        return get_k_tiered_reward(tier, self.num_tiers, self.h, self.delta)
+    
+    @abstractmethod
+    def log_tier_hitting_count(self, info):
+        """not used"""
+        raise NotImplementedError
+
+
+class EmptyMiniGridTierReward(TierRewardWrapper):
+    """
+    Tier Reward for MiniGrid-Empty-nxn-v0
+    
+    Tiers are assigned based on teht agent's L1 distance to the goal
+    
+    The goal is always its own tier -- the highest tier.
+    The rest of the tiers are spread out evenly according to the L1 distance.
+    
+    NOTE: this assumes there is only a single goal state
+    """
+    @cached_property
+    def goal_pos(self):
+        return determine_goal_pos(self.env)
+    
+    @cached_property
+    def max_dist(self):
+        # two corner margin & -1 each side for the distance
+        return self.env.grid.width + self.env.grid.height - 6
+    
+    def _get_tier(self, info):
+        def get_l1_distance(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+        
+        dist = get_l1_distance(info['player_pos'], self.goal_pos)
+        if dist == 0:
+            return self.num_tiers - 1
+        else:
+            return math.floor((self.num_tiers - 1) * (1 - dist / self.max_dist))
+    
+    def _modify_reward(self, reward, info):
+        tier = self._get_tier(info)
+        return self._get_tier_reward(tier)
+
+    def log_tier_hitting_count(self, info):
+        pass
+
+
 class GrayscaleWrapper(ObservationWrapper):
     def observation(self, observation):
         observation = observation.mean(axis=0)[np.newaxis, :, :]
         return observation.astype(np.uint8)
-
-
-class RandomStartWrapper(Wrapper):
-    def __init__(self, env, start_loc_file='start_locations_4rooms.pkl'):
-        """Randomly samples the starting location for the agent. We have to use the
-        ReseedWrapper() because otherwiswe the layout can change between episodes.
-        But when we use that wrapper, it also makes random init selection impossible.
-        As a hack, I stored some randomly generated (non-collision) locations to a
-        file and that is the one we load here.
-        """
-        super().__init__(env)
-        self.n_episodes = 0
-        self.start_locations = pickle.load(open(start_loc_file, 'rb'))
-
-        # TODO(ab): This assumes that the 2nd-to-last action is unused in the env
-        # Not using the last action because that terminates the episode!
-        self.no_op_action = env.action_space.n - 2
-
-    def reset(self):
-        super().reset()
-        rand_pos = self.start_locations[self.n_episodes % len(
-            self.start_locations)]
-        self.n_episodes += 1
-        return self.reset_to(rand_pos)
-
-    def reset_to(self, rand_pos):
-        new_pos = self.env.place_agent(
-            top=rand_pos,
-            size=(3, 3)
-        )
-
-        # Apply the no-op to get the observation image
-        obs, _, _, info = self.env.step(self.no_op_action)
-
-        info['player_x'] = new_pos[0]
-        info['player_y'] = new_pos[1]
-        info['player_pos'] = new_pos
-
-        return obs, info
 
 
 def determine_goal_pos(env):
@@ -153,8 +236,12 @@ def determine_is_door_open(env):
 def environment_builder(
     level_name='MiniGrid-Empty-8x8-v0',
     seed=42,
+    gamma=0.99,
+    delta=0.1,
+    num_tiers=5,
     use_img_obs=True,
     reward_fn='original',
+    normalize_reward=False,
     grayscale=True,
     max_steps=None,
     render_mode=None,
@@ -174,19 +261,30 @@ def environment_builder(
         env = RGBImgObsWrapper(env)  # Get pixel observations
         env = ImgObsWrapper(env)  # Get rid of the 'mission' field
 
-    # sparse reward
-    if reward_fn == 'sparse':
-        env = SparseRewardWrapper(env)
-    elif reward_fn == 'step_penalty':
-        env = StepPenaltyRewardWrapper(env)
-    else:
-        assert reward_fn == 'original'
-
     # grayscale
     if grayscale:
         env = GrayscaleWrapper(env)
 
     # more information in the info dict
     env = MinigridInfoWrapper(env)
+
+    # different reward functions
+    if reward_fn == 'sparse':
+        env = SparseRewardWrapper(env)
+    elif reward_fn == 'step_penalty':
+        env = StepPenaltyRewardWrapper(env)
+    elif reward_fn == 'tier':
+        if 'empty' in level_name.lower():
+            env = EmptyMiniGridTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta)  # TODO:
+        else:
+            raise NotImplementedError('This environment does not yet support tiered rewards')
+    else:
+        assert reward_fn == 'original'
+        
+    # normalize reward
+    if normalize_reward:
+        max_reward = get_k_tiered_reward(0, total_num_tiers=num_tiers, H=1/(1-gamma), delta=delta)
+        max_abs_reward = abs(max_reward)
+        env = NormalizeRewardWrapper(env, max_r_value=max_abs_reward)
 
     return env
