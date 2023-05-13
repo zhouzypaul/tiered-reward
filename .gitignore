@@ -5,6 +5,8 @@
 # results
 results/
 log/
+*.out
+*.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

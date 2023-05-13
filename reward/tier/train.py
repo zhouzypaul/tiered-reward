@@ -2,6 +2,9 @@ import os
 import argparse
 
 import numpy as np
+from reward.agents.dqn import DQN
+import torch
+import random
 
 from reward.environments import make_one_dim_chain, make_single_goal_square_grid, \
     make_frozen_lake, make_russell_norvig_grid, make_wall_grid, make_flag_grid
@@ -20,12 +23,13 @@ def train_on_env(env, agent_name, num_steps, num_seeds, initial_value, learning_
     """
     if multiprocessing:
         agents = [
-            make_agent(agent_name, seed=s, num_steps=num_steps, optimistic_value=initial_value, learning_rate=learning_rate)
+            make_agent(agent_name, agent_seed=s, num_steps=num_steps, optimistic_value=initial_value, learning_rate=learning_rate)
             for s in range(num_seeds)
         ]
         results = run_multiprocessing_learning(
             env,
             agents=agents,
+            agent_seeds=list(range(num_seeds))
         )
     else:
         agent = make_agent(agent_name, seed, num_steps, optimistic_value=initial_value, learning_rate=learning_rate)
@@ -42,7 +46,7 @@ def train_on_env(env, agent_name, num_steps, num_seeds, initial_value, learning_
 
     return results
 
-def make_agent(agent_name, seed, num_steps, optimistic_value, learning_rate):
+def make_agent(agent_name, agent_seed, num_steps, optimistic_value, learning_rate):
     """
     create the learning agent
     """
@@ -52,13 +56,19 @@ def make_agent(agent_name, seed, num_steps, optimistic_value, learning_rate):
             rand_choose=0,
             learning_rate=learning_rate,
             initial_q=float(optimistic_value),
-            seed=seed,
+            seed=agent_seed,
         )
     elif agent_name == 'rmax':
         agent = RMaxAgent(
             num_steps=num_steps,
             rmax=float(optimistic_value),
-            seed=seed,
+            seed=agent_seed,
+        )
+    elif agent_name == 'dqn':
+        agent = DQN(
+            num_steps=num_steps,
+            seed=agent_seed,
+            learning_rate=learning_rate
         )
     else:
         raise NotImplementedError
@@ -87,7 +97,7 @@ def make_env(env_name, num_tiers, discount, delta):
             gamma=discount,
             delta=delta,
         )
-        print(tier_r)
+        # print(tier_r)
         tier_env = make_one_dim_chain(
             num_states=num_chain_states,
             discount_rate=discount,
@@ -113,7 +123,7 @@ def make_env(env_name, num_tiers, discount, delta):
             gamma=discount,
             delta=delta,
         )
-        print(tier_r)
+        # print(tier_r)
         tier_env = make_single_goal_square_grid(
             num_side_states=num_side_states,
             discount_rate=discount,
@@ -219,31 +229,35 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env", type=str, default="chain",
                         choices=["chain", "grid", "frozen_lake", "rn_grid", "wall_grid", "flag_grid"],)
-    parser.add_argument('--agent', type=str, default='qlearning',
-                        choices=['qlearning', 'rmax'])
+    parser.add_argument('--agent', type=str, default='dqn',
+                        choices=['qlearning', 'rmax', 'dqn'])
     parser.add_argument("--steps", type=int, default=7_000)
     parser.add_argument("--tiers", "-t", type=int, nargs="+", default=[5], help="number of tiers to use for reward")
     parser.add_argument("--seed", "-s", type=int, default=0, help="random seed")
     parser.add_argument("--num_seeds", type=int, default=10, help="number of seeds to use for multiprocessing")
 
     # hyperparams
-    parser.add_argument("--lr", type=float, default=0.9, help="learning rate for q learning")
+    parser.add_argument("--lr", type=float, default=1e-3, help="learning rate for q learning")
     parser.add_argument("--initial_value", "-i", type=float, default=1e5, help="during learning, values are initialized to this value")
     parser.add_argument("--gamma", "-g", type=float, default=0.90, help="discount rate")
     parser.add_argument("--delta", "-d", type=float, default=0.1, help="tier offset for reward")
+
+    parser.add_argument("--multiprocessing", "-p", type=bool, default=True, help="whether to use multiprocessing")
 
     # debug
     parser.add_argument("--verbose", "-v", action="store_true", default=False)
 
     args = parser.parse_args()
 
+    random.seed(args.seed)
     np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
 
     for tier in args.tiers:
 
         # saving dir
         experiment_name = f"{args.env}-{args.agent}"
-        experiment_name += f"-initial-{args.initial_value}"
+        # experiment_name += f"-initial-{args.initial_value}"
         experiment_name += f"-lr-{args.lr}"
         saving_dir = os.path.join('results', experiment_name, f"{tier}-tier")
         create_log_dir(saving_dir, remove_existing=True)
@@ -260,6 +274,7 @@ if __name__ == "__main__":
             "initial_value": args.initial_value,
             "learning_rate": args.lr,
             "verbose": args.verbose,
+            "multiprocessing": args.multiprocessing
         }
 
         results = train_on_env(env, **training_params)
