@@ -100,8 +100,6 @@ class TierRewardWrapper(gym.Wrapper):
 
 class CartPoleTierReward(TierRewardWrapper):
 
-    num_tiers = 4
-
     def _get_tier(self, obs):
         angle = abs(obs[2])
         tier = math.floor((angle / 0.418) * self.num_tiers)
