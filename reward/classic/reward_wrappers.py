@@ -4,6 +4,7 @@ import gym
 import numpy as np
 import math
 
+epsilon = 0.001
 
 def get_k_tiered_reward(i_tier, total_num_tiers, H, delta):
     """
@@ -115,7 +116,7 @@ class CartPoleTierReward(TierRewardWrapper):
 
     def _get_tier(self, obs):
         angle = abs(obs[2])
-        tier = math.floor((angle / 0.418) * self.num_tiers)
+        tier = math.floor(((0.418-angle) / (0.418+ epsilon)) * self.num_tiers)
         return tier
 
 class AcrobotTierReward(TierRewardWrapper):
@@ -126,7 +127,7 @@ class AcrobotTierReward(TierRewardWrapper):
         t2 = math.acos(cost2)
 
         height = -cost1 - math.cos(t1+t2)
-        n_height = (height + 2.0) / 4.0
+        n_height = (height + 2.0) / (4.0 + epsilon)
 
         tier = math.floor(n_height * self.num_tiers)
         return tier
@@ -136,7 +137,7 @@ def wrap_tier_rewards(env, num_tiers, gamma, delta, keep_original_reward=False, 
     if 'cartpole' in env_id:
         env = CartPoleTierReward(env, num_tiers=num_tiers, gamma=gamma,
                                  delta=delta, keep_original_reward=keep_original_reward)
-    if 'acrobot' in env_id:
+    elif 'acrobot' in env_id:
         env = AcrobotTierReward(env, num_tiers=num_tiers, gamma=gamma,
                                  delta=delta, keep_original_reward=keep_original_reward)
     else:
