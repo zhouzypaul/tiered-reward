@@ -228,7 +228,7 @@ def train_agent_batch_with_evaluation(
             actions = agent.batch_act(obss)
             # o_{t+1}, r_{t+1}
             obss, rs, dones, infos = env.step(actions)
-            print(rs)  # TODO: remove 
+            # print(rs)  # TODO: remove 
             episode_r += rs
             episode_original_r += np.array([info['original_reward'] for info in infos])
             episode_len += 1
@@ -360,7 +360,7 @@ def main():
                         help='Name used to save the results in')
     parser.add_argument("--outdir", type=str, default="results",
                         help="Directory path to save output files. If it does not exist, it will be created.")
-    parser.add_argument("--env", type=str, default="cartpole")
+    parser.add_argument("--env", type=str, default="Breakout")
     parser.add_argument("--steps", type=int, default=2 * 10**7)
     parser.add_argument("--num-tiers", "-t", type=int, default=5,
                         help="Number of tiers to use in the custom reward function")
@@ -389,13 +389,13 @@ def main():
 
     # training settings
     parser.add_argument(
-        "--agent", type=str, default="DoubleDQN", choices=["DQN", "DoubleDQN", "PAL"]
+        "--agent", type=str, default="DQN", choices=["DQN", "DoubleDQN", "PAL"]
     )
     parser.add_argument(
         "--arch",
         type=str,
-        default="doubledqn",
-        choices=["nature", "nips", "dueling", "doubledqn"],
+        default="linear",
+        choices=["linear"],
     )
     # parser.add_argument(
     #     "--max-frames",
@@ -443,7 +443,7 @@ def main():
     # args.env = args.env + 'NoFrameskip-v4'
 
     # agent
-    sample_env = make_env(args.env, gamma=args.gamma, delta=args.delta, seed=0, num_tiers=args.num_tiers, max_episode_steps=args.steps, test=False)
+    sample_env = make_env(args.env, gamma=args.gamma, delta=args.delta, seed=0, num_tiers=args.num_tiers, test=False)
     agent = make_agent(args, n_actions=sample_env.action_space.n, gamma=args.gamma)
 
     # Set different random seeds for different subprocesses.
@@ -455,8 +455,8 @@ def main():
 
     train_agent_batch_with_evaluation(
         agent=agent,
-        env=make_batch_env(args.env, args.gamma, args.delta, num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=args.original_reward, normalize_reward=args.normalize_reward, test=False),
-        eval_env=make_batch_env(args.env, args.gamma, args.delta, num_envs, process_seeds, args.max_frames, num_tiers=args.num_tiers, original_reward=True, normalize_reward=args.normalize_reward, test=True),
+        env=make_batch_env(args.env, args.gamma, args.delta, num_envs, process_seeds, num_tiers=args.num_tiers, original_reward=args.original_reward, normalize_reward=args.normalize_reward, test=False),
+        eval_env=make_batch_env(args.env, args.gamma, args.delta, num_envs, process_seeds, num_tiers=args.num_tiers, original_reward=True, normalize_reward=args.normalize_reward, test=True),
         steps=args.steps,
         eval_n_steps=None,
         eval_n_episodes=args.eval_n_runs,

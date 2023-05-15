@@ -2,21 +2,28 @@ import functools
 
 import gym
 import pfrl
+# from atariari.benchmark.wrapper import AtariARIWrapper
+from pfrl.wrappers import atari_wrappers
 
 from reward.classic.reward_wrappers import wrap_tier_rewards
 from reward.classic.vec_env import VectorFrameStack, MultiprocessVectorEnv
 
 
-def make_env(env_id, gamma, delta, seed, max_episode_steps, num_tiers=15, original_reward=False, normalize_reward=False, test=False):
+def make_env(env_id, gamma, delta, seed, num_tiers=15, original_reward=False, normalize_reward=False, test=False):
     # Use different random seeds for train and test envs
     env_seed = int(2**32 - 1 - seed if test else seed)
 
-    #env = gym.make(env_id, max_episode_steps=max_episode_steps)
     env = gym.make(env_id)
+    # is_atari = hasattr(gym.envs, 'atari') and isinstance(
+    #     env.unwrapped, gym.envs.atari.atari_env.AtariEnv)
+    # assert is_atari
+    # try:
+    #     env = AtariARIWrapper(env)
+    # except AssertionError:
+    #     # env is not supported by AtariARIWrapper
+    #     pass
 
-    env = wrap_tier_rewards(env, num_tiers=num_tiers, gamma=gamma,
-                            delta=delta, keep_original_reward=original_reward,
-                            normalize_reward=not test and not original_reward and normalize_reward)
+    env = wrap_tier_rewards(env, num_tiers=num_tiers, gamma=gamma, delta=delta, keep_original_reward=original_reward, normalize_reward=not test and not original_reward and normalize_reward)
 
     # env = atari_wrappers.wrap_deepmind(
     #     env,
@@ -35,14 +42,13 @@ def make_env(env_id, gamma, delta, seed, max_episode_steps, num_tiers=15, origin
     return env
 
 
-def make_batch_env(env_id, gamma, delta, num_envs, seeds, max_frames, num_tiers, original_reward, normalize_reward, test):
+def make_batch_env(env_id, gamma, delta, num_envs, seeds, num_tiers, original_reward, normalize_reward, test):
     if original_reward:
         print('making environment with original reward function')
     assert len(seeds) == num_envs
     vec_env = MultiprocessVectorEnv(
         [
-            functools.partial(make_env, env_id, gamma, delta,
-                              seeds[idx], max_frames, num_tiers, original_reward, normalize_reward, test)
+            functools.partial(make_env, env_id, gamma, delta, seeds[idx], num_tiers, original_reward, normalize_reward, test)
             for idx, env in enumerate(range(num_envs))
         ]
     )

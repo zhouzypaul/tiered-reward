@@ -44,29 +44,16 @@ def optimistic_init_chainer_default(layer):
     return layer
 
 
-def parse_arch(arch, n_actions):
-    if arch == "nature":
+def parse_arch(args, n_actions):
+    arch = args.arch
+
+    if arch == "linear":
         return nn.Sequential(
-            pnn.LargeAtariCNN(),
-            optimistic_init_chainer_default(nn.Linear(512, n_actions)),
+            optimistic_init_chainer_default(nn.Linear(16, 32)),
+            optimistic_init_chainer_default(nn.Linear(32, n_actions)),
             DiscreteActionValueHead(),
         )
-    elif arch == "doubledqn":
-        # raise NotImplementedError("Single shared bias not implemented yet")
-        return nn.Sequential(
-            pnn.LargeAtariCNN(),
-            optimistic_init_chainer_default(nn.Linear(512, n_actions, bias=False)),
-            SingleSharedBias(),
-            DiscreteActionValueHead(),
-        )
-    elif arch == "nips":
-        return nn.Sequential(
-            pnn.SmallAtariCNN(),
-            optimistic_init_chainer_default(nn.Linear(256, n_actions)),
-            DiscreteActionValueHead(),
-        )
-    elif arch == "dueling":
-        return DuelingDQN(n_actions)
+
     else:
         raise RuntimeError("Not supported architecture: {}".format(arch))
 
@@ -76,7 +63,7 @@ def parse_agent(agent):
 
 
 def make_agent(args, n_actions, gamma):
-    q_func = parse_arch(args.arch, n_actions)
+    q_func = parse_arch(args, n_actions)
 
     if args.noisy_net_sigma is not None:
         pnn.to_factorized_noisy(q_func, sigma_scale=args.noisy_net_sigma)
