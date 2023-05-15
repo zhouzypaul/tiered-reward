@@ -25,51 +25,28 @@ def get_k_tiered_reward(i_tier, total_num_tiers, H, delta):
         return H * get_k_tiered_reward(i_tier + 1, total_num_tiers, H, delta) - delta
 
 
-class NormalizedRewardWrapper(gym.Wrapper):
-    """
-    Normalize the reward so that its absolute value is between [0, 1]
-    For TieredReward that is designed to be negative, this wrapper should normalize the
-    reward values to be between [-1, 0]
-    """
-
-    def __init__(self, env, max_r_value):
-        super().__init__(env)
-        self.max_r_value = max_r_value
-
-    def reward(self, r):
-        """
-        divide by max reward value
-        """
-        new_r = r / self.max_r_value
-        assert -1 <= new_r <= 1
-        return new_r
-
-    def reset(self, **kwargs):
-        """
-        need to override this method so that args can be passed to TierRewardWrapper
-        """
-        return self.env.reset(**kwargs)
-
-    def step(self, action):
-        obs, reward, done, info = self.env.step(action)
-        reward = self.reward(reward)
-        return obs, reward, done, info
-
 
 class TierRewardWrapper(gym.Wrapper):
     """
     modify the reward() function to make the reward tiered
     """
 
-    def __init__(self, env, num_tiers, gamma, delta, keep_original_reward=False):
+    def __init__(self, env, num_tiers, gamma, delta, keep_original_reward=False, normalize_reward=False):
         super().__init__(env)
         self.num_tiers = num_tiers
         self.gamma = gamma
         self.keep_original_reward = keep_original_reward
+        self.normalize_reward = normalize_reward
 
         self.h = 1 / (1-gamma)
         self.delta = delta  # good tier r = H * prev tier + delta
         self.tiers_hitting_count = np.zeros(num_tiers, dtype=np.int32)
+
+        if normalize_reward:
+            max_reward = get_k_tiered_reward(
+            0, total_num_tiers=num_tiers, H=1/(1-gamma), delta=delta)
+            
+            self.max_reward = abs(max_reward)
 
     def reset_hitting_count(self):
         """"""
@@ -92,14 +69,23 @@ class TierRewardWrapper(gym.Wrapper):
         """
         return get_k_tiered_reward(tier, self.num_tiers, self.h, self.delta)
 
-    def reward(self, reward, obs, info):
-        info['original_reward'] = float(reward)
+    def reward(self, og_reward, obs, info):
+        info['original_reward'] = float(og_reward)
 
         if self.keep_original_reward:
-            return reward
+            return og_reward
 
         tier = self._get_tier(obs)
-        return self._get_tier_reward(tier)
+        reward = self._get_tier_reward(tier)
+
+        if self.normalize_reward:
+            norm_reward = reward / self.max_reward
+            assert -1 <= norm_reward <= 1
+            reward = norm_reward
+
+        # print(f'og: {og_reward}', f'tier: {reward}')
+        
+        return reward
 
     def log_tier_hitting_count(self, obs, info):
         tier = self._get_tier(obs)
@@ -107,8 +93,8 @@ class TierRewardWrapper(gym.Wrapper):
         info['tiers_hitting_count'] = self.tiers_hitting_count
 
     def step(self, action):
-        obs, reward, done, info = self.env.step(action)
-        reward = self.reward(reward, obs, info)
+        obs, og_reward, done, info = self.env.step(action)
+        reward = self.reward(og_reward, obs, info)
         self.log_tier_hitting_count(obs, info)
         return obs, reward, done, info
 
@@ -130,25 +116,23 @@ class AcrobotTierReward(TierRewardWrapper):
         n_height = (height + 2.0) / (4.0 + epsilon)
 
         tier = math.floor(n_height * self.num_tiers)
+
+        # print(f'height: {height}')
+        # print(f'tier: {tier}')
         return tier
 
 def wrap_tier_rewards(env, num_tiers, gamma, delta, keep_original_reward=False, normalize_reward=False):
     env_id = (env.spec.id).lower()
     if 'cartpole' in env_id:
         env = CartPoleTierReward(env, num_tiers=num_tiers, gamma=gamma,
-                                 delta=delta, keep_original_reward=keep_original_reward)
+                                 delta=delta, keep_original_reward=keep_original_reward, 
+                                 normalize_reward=normalize_reward)
     elif 'acrobot' in env_id:
         env = AcrobotTierReward(env, num_tiers=num_tiers, gamma=gamma,
-                                 delta=delta, keep_original_reward=keep_original_reward)
+                                 delta=delta, keep_original_reward=keep_original_reward, 
+                                 normalize_reward=normalize_reward)
     else:
         raise NotImplementedError
-
-    # normalize reward
-    if normalize_reward:
-        max_reward = get_k_tiered_reward(
-            0, total_num_tiers=num_tiers, H=1/(1-gamma), delta=delta)
-        max_reward = abs(max_reward)
-        env = NormalizedRewardWrapper(env, max_r_value=max_reward)
 
     return env
 

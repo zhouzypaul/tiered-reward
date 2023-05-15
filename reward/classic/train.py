@@ -360,7 +360,7 @@ def main():
                         help='Name used to save the results in')
     parser.add_argument("--outdir", type=str, default="results",
                         help="Directory path to save output files. If it does not exist, it will be created.")
-    parser.add_argument("--env", type=str, default="Breakout")
+    parser.add_argument("--env", type=str, default="CartPole-v1")
     parser.add_argument("--steps", type=int, default=2 * 10**7)
     parser.add_argument("--num-tiers", "-t", type=int, default=5,
                         help="Number of tiers to use in the custom reward function")
@@ -368,12 +368,12 @@ def main():
                         help="Use the original reward function")
     parser.add_argument("--normalize-reward", "-n", action="store_true", default=False,
                         help="Normalize the reward function so that its absolute value is in [0, 1]")
-    parser.add_argument("--frame-stack", type=int, default=4)
+    parser.add_argument("--frame-stack", type=int, default=1)
     parser.add_argument("--num-envs", type=int, default=32)
     parser.add_argument("--debug", action="store_true", default=False, help="Debug Mode.")
 
     # hyperparams
-    parser.add_argument("--gamma", type=float, default=0.99,
+    parser.add_argument("--gamma", type=float, default=0.95,
                         help="Discount factor of MDP.")
     parser.add_argument("--delta", type=float, default=0.1,
                         help="offset used in the custom reward function")
@@ -390,7 +390,7 @@ def main():
 
     # training settings
     parser.add_argument(
-        "--agent", type=str, default="DQN", choices=["DQN", "DoubleDQN", "PAL"]
+        "--agent", type=str, default="DQN", choices=["CatDoubleDQN", "DQN", "DoubleDQN", "PAL"]
     )
     parser.add_argument(
         "--arch",
@@ -411,7 +411,7 @@ def main():
     parser.add_argument("--noisy-net-sigma", type=float, default=None)
     parser.add_argument("--replay-start-size", type=int, default=5 * 10**4)
     parser.add_argument("--target-update-interval", type=int, default=3 * 10**4)
-    parser.add_argument("--eval-interval", type=int, default=10**5)
+    parser.add_argument("--eval-interval", type=int, default=10**4)
     parser.add_argument("--update-interval", type=int, default=4)
     parser.add_argument("--eval-n-runs", type=int, default=10)
     parser.add_argument("--no-clip-delta", dest="clip_delta", action="store_false")
@@ -436,9 +436,10 @@ def main():
 
     # saving dir
     experiment_name = args.experiment_name if args.experiment_name is not None else f"{args.env}"
+    reward_type = "tiered-reward"
     if args.original_reward:
-        experiment_name += "-original-reward"
-    args.outdir = create_log_dir(os.path.join(args.outdir, experiment_name, f"{args.num_tiers}-tiers", f"seed_{args.seed}"), remove_existing=True, log_git=True)
+        reward_type = "original-reward"
+    args.outdir = create_log_dir(os.path.join(args.outdir, experiment_name, f"{args.num_tiers}-tiers", reward_type, f"seed_{args.seed}"), remove_existing=True, log_git=True)
 
     # process args
     # args.env = args.env + 'NoFrameskip-v4'

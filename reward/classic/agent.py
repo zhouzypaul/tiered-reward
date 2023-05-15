@@ -48,8 +48,14 @@ def parse_arch(args):
 
     if args.arch == "linear":
         return nn.Sequential(
-            optimistic_init_chainer_default(nn.Linear(args.observ_space*args.frame_stack, 32)),
-            optimistic_init_chainer_default(nn.Linear(32, args.action_space)),
+            nn.Linear(args.observ_space*args.frame_stack, 512),
+            nn.ReLU(),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, args.action_space),
+            nn.Softmax(dim=1),
             DiscreteActionValueHead(),
         )
 
@@ -58,7 +64,7 @@ def parse_arch(args):
 
 
 def parse_agent(agent):
-    return {"DQN": agents.DQN, "DoubleDQN": agents.DoubleDQN, "PAL": agents.PAL}[agent]
+    return {"CatDoubleDQN": agents.CategoricalDoubleDQN, "DQN": agents.DQN, "DoubleDQN": agents.DoubleDQN, "PAL": agents.PAL}[agent]
 
 
 def make_agent(args):
