@@ -368,6 +368,7 @@ def main():
                         help="Use the original reward function")
     parser.add_argument("--normalize-reward", "-n", action="store_true", default=False,
                         help="Normalize the reward function so that its absolute value is in [0, 1]")
+    parser.add_argument("--frame-stack", type=int, default=4)
     parser.add_argument("--num-envs", type=int, default=32)
     parser.add_argument("--debug", action="store_true", default=False, help="Debug Mode.")
 
@@ -444,7 +445,9 @@ def main():
 
     # agent
     sample_env = make_env(args.env, gamma=args.gamma, delta=args.delta, seed=0, num_tiers=args.num_tiers, test=False)
-    agent = make_agent(args, n_actions=sample_env.action_space.n, gamma=args.gamma)
+    args.action_space = sample_env.action_space.n
+    args.observ_space = sample_env.observation_space.shape[0]
+    agent = make_agent(args)
 
     # Set different random seeds for different subprocesses.
     # If seed=0 and processes=4, subprocess seeds are [0, 1, 2, 3].
@@ -455,8 +458,8 @@ def main():
 
     train_agent_batch_with_evaluation(
         agent=agent,
-        env=make_batch_env(args.env, args.gamma, args.delta, num_envs, process_seeds, num_tiers=args.num_tiers, original_reward=args.original_reward, normalize_reward=args.normalize_reward, test=False),
-        eval_env=make_batch_env(args.env, args.gamma, args.delta, num_envs, process_seeds, num_tiers=args.num_tiers, original_reward=True, normalize_reward=args.normalize_reward, test=True),
+        env=make_batch_env(args.env, args.gamma, args.delta, num_envs, args.frame_stack, process_seeds, num_tiers=args.num_tiers, original_reward=args.original_reward, normalize_reward=args.normalize_reward, test=False),
+        eval_env=make_batch_env(args.env, args.gamma, args.delta, num_envs, args.frame_stack, process_seeds, num_tiers=args.num_tiers, original_reward=True, normalize_reward=args.normalize_reward, test=True),
         steps=args.steps,
         eval_n_steps=None,
         eval_n_episodes=args.eval_n_runs,

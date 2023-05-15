@@ -44,13 +44,12 @@ def optimistic_init_chainer_default(layer):
     return layer
 
 
-def parse_arch(args, n_actions):
-    arch = args.arch
+def parse_arch(args):
 
-    if arch == "linear":
+    if args.arch == "linear":
         return nn.Sequential(
-            optimistic_init_chainer_default(nn.Linear(16, 32)),
-            optimistic_init_chainer_default(nn.Linear(32, n_actions)),
+            optimistic_init_chainer_default(nn.Linear(args.observ_space*args.frame_stack, 32)),
+            optimistic_init_chainer_default(nn.Linear(32, args.action_space)),
             DiscreteActionValueHead(),
         )
 
@@ -62,8 +61,8 @@ def parse_agent(agent):
     return {"DQN": agents.DQN, "DoubleDQN": agents.DoubleDQN, "PAL": agents.PAL}[agent]
 
 
-def make_agent(args, n_actions, gamma):
-    q_func = parse_arch(args, n_actions)
+def make_agent(args):
+    q_func = parse_arch(args)
 
     if args.noisy_net_sigma is not None:
         pnn.to_factorized_noisy(q_func, sigma_scale=args.noisy_net_sigma)
@@ -106,7 +105,7 @@ def make_agent(args, n_actions, gamma):
         opt,
         rbuf,
         gpu=args.gpu,
-        gamma=gamma,
+        gamma=args.gamma,
         explorer=explorer,
         replay_start_size=args.replay_start_size,
         target_update_interval=args.target_update_interval,

@@ -25,15 +25,6 @@ def make_env(env_id, gamma, delta, seed, num_tiers=15, original_reward=False, no
 
     env = wrap_tier_rewards(env, num_tiers=num_tiers, gamma=gamma, delta=delta, keep_original_reward=original_reward, normalize_reward=not test and not original_reward and normalize_reward)
 
-    # env = atari_wrappers.wrap_deepmind(
-    #     env,
-    #     episode_life=not test,
-    #     clip_rewards=False,
-    #     frame_stack=False,  # because we are doing vector frame stack
-    #     scale=False,
-    #     fire_reset=True,
-    # )
-
     # if test:
     #     # Randomize actions like epsilon-greedy in evaluation as well
     #     env = pfrl.wrappers.RandomizeAction(env, args.eval_epsilon)
@@ -42,7 +33,7 @@ def make_env(env_id, gamma, delta, seed, num_tiers=15, original_reward=False, no
     return env
 
 
-def make_batch_env(env_id, gamma, delta, num_envs, seeds, num_tiers, original_reward, normalize_reward, test):
+def make_batch_env(env_id, gamma, delta, num_envs, frame_stack_size, seeds, num_tiers, original_reward, normalize_reward, test):
     if original_reward:
         print('making environment with original reward function')
     assert len(seeds) == num_envs
@@ -52,5 +43,5 @@ def make_batch_env(env_id, gamma, delta, num_envs, seeds, num_tiers, original_re
             for idx, env in enumerate(range(num_envs))
         ]
     )
-    vec_env = VectorFrameStack(vec_env, 4)
+    vec_env = VectorFrameStack(vec_env, frame_stack_size)
     return vec_env
