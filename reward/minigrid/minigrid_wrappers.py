@@ -1,6 +1,6 @@
 import math
-from functools import cached_property
 from abc import abstractmethod
+from functools import cached_property
 
 import numpy as np
 from PIL import Image
@@ -169,6 +169,42 @@ class TierRewardWrapper(Wrapper):
         raise NotImplementedError
 
 
+class TierBasedShapingReward(Wrapper):
+    """
+    Do reward shaping with a tiered reward as the shaping function
+    
+    NOTE: it must be wrapped around some tier reward
+    NOTE: this assumes that we are shaping a step_penalty reward
+    """
+    def __init__(self, env: TierRewardWrapper, gamma):
+        assert isinstance(env, TierRewardWrapper), env
+        super().__init__(env)
+        self.gamma = gamma
+        
+        # keep track of current obs so that we can shape reward
+        self.current_obs = None
+        self.current_tier = None
+    
+    def reset(self, **kwargs):
+        self.current_obs, info = self.env.reset(**kwargs)
+        self.current_tier = self.env._get_tier(info)
+        return self.current_obs, info
+    
+    def step(self, action):
+        """assumes that we are shaping a step_penalty reward"""
+        next_obs, tier_r, terminated, truncated, info = self.env.step(action)
+        assert 'original_reward' in info
+        
+        ns_tier = self.env._get_tier(info)
+        step_penalty_r = 0 if info['original_reward'] > 0 else -1
+        shaped_reward = step_penalty_r + self.gamma * self.env._get_tier_reward(ns_tier) - self.env._get_tier_reward(self.current_tier)
+        
+        self.current_obs = next_obs
+        self.current_tier = ns_tier
+        
+        return next_obs, shaped_reward, terminated, truncated, info
+
+
 class EmptyMiniGridTierReward(TierRewardWrapper):
     """
     Tier Reward for MiniGrid-Empty-nxn-v0
@@ -273,16 +309,21 @@ def environment_builder(
         env = SparseRewardWrapper(env)
     elif reward_fn == 'step_penalty':
         env = StepPenaltyRewardWrapper(env)
-    elif reward_fn == 'tier':
+    elif reward_fn in ('tier', 'tier_based_shaping'):
         if 'empty' in level_name.lower():
-            env = EmptyMiniGridTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta)  # TODO:
+            env = EmptyMiniGridTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta)
         else:
             raise NotImplementedError('This environment does not yet support tiered rewards')
+        
+        if reward_fn == 'tier_based_shaping':
+            env = TierBasedShapingReward(env, gamma=gamma)
+        
     else:
         assert reward_fn == 'original'
         
     # normalize reward
     if normalize_reward:
+        assert reward_fn in ('tier', 'tier_based_shaping')
         max_reward = get_k_tiered_reward(0, total_num_tiers=num_tiers, H=1/(1-gamma), delta=delta)
         max_abs_reward = abs(max_reward)
         env = NormalizeRewardWrapper(env, max_r_value=max_abs_reward)

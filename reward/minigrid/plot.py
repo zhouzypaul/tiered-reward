@@ -44,6 +44,7 @@ def plot_different_reward_comparison(base_dir, title=None):
         reward_df['reward_type'] = reward_type
         all_reward_df.append(reward_df)
     data = pandas.concat(all_reward_df, ignore_index=True)
+    data = data.sort_values(by=['reward_type'])
 
     # episodic return
     sns.lineplot(
@@ -66,6 +67,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--load', '-l', type=str, required=True, help='path to the directory containing the progress.csv')
+    parser.add_argument('--title', '-t', type=str, default=None, help='title of the plot')
     args = parser.parse_args()
 
-    plot_different_reward_comparison(args.load)
+    plot_different_reward_comparison(args.load, args.title)

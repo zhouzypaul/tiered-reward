@@ -38,7 +38,7 @@ parser.add_argument("--frames", type=int, default=200_000,
 # Params for environment
 parser.add_argument("--reward-function", "-r", default="original",
                     help="What kind of reward function to use for the environment", 
-                    choices=['original', 'sparse', 'step_penalty', 'tier'])
+                    choices=['original', 'sparse', 'step_penalty', 'tier', 'tier_based_shaping'])
 parser.add_argument("--num-tiers", "-t", type=int, default=5,
                     help="Number of tiers to use in the custom reward function")
 parser.add_argument("--normalize-reward", "-n", action="store_true", default=False,
