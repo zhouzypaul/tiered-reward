@@ -205,6 +205,100 @@ class TierBasedShapingReward(Wrapper):
         return next_obs, shaped_reward, terminated, truncated, info
 
 
+class DoorKeyMiniGridTierReward(TierRewardWrapper):
+    """
+    Tier Reward for MiniGrid-DoorKey-nxn-v0
+    
+    Tiers are assigned based on teht agent's L1 distance to the goal
+    
+    The goal is always its own tier -- the highest tier.
+    The rest of the tiers are spread out evenly according to the L1 distance.
+    
+    NOTE: this assumes there is only a single goal state
+    """
+    @cached_property
+    def goal_pos(self):
+        return determine_goal_pos(self.env)
+    
+    @cached_property
+    def key_pos(self):
+        return determine_key_pos(self.env)
+    
+    @cached_property
+    def check_holding_key(self):
+        return determine_is_door_open(self.env)
+
+
+    @cached_property
+    def max_dist(self):
+        # two corner margin & -1 each side for the distance
+        return self.env.grid.width + self.env.grid.height - 6
+    
+    def _get_tier(self, info):
+
+        def get_l1_distance(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+        
+        dist_to_goal = get_l1_distance(info['player_pos'], self.goal_pos)
+        dist_to_key = get_l1_distance(info['player_pos'], self.key_pos)
+
+        holding_key = self.check_holding_key()
+
+        if dist_to_goal == 0 and holding_key:
+            return self.num_tiers-1
+        elif dist_to_key == 0 and not holding_key:
+            return (self.num_tiers-1)//2
+        elif not holding_key:
+            return math.floor(((self.num_tiers - 1)//2) * (1 - dist_to_key / self.max_dist))
+        else:
+            return math.floor((self.num_tiers - 1) * (1 - dist_to_goal / self.max_dist))
+    
+    def _modify_reward(self, reward, info):
+        tier = self._get_tier(info)
+        return self._get_tier_reward(tier)
+
+    def log_tier_hitting_count(self, info):
+        pass
+
+
+class FourRoomsMiniGridTierReward(TierRewardWrapper):
+    """
+    Tier Reward for MiniGrid-FourRooms-v0
+    
+    Tiers are assigned based on teht agent's L1 distance to the goal
+    
+    The goal is always its own tier -- the highest tier.
+    The rest of the tiers are spread out evenly according to the L1 distance.
+    
+    NOTE: this assumes there is only a single goal state
+    """
+    @cached_property
+    def goal_pos(self):
+        return determine_goal_pos(self.env)
+    
+    @cached_property
+    def max_dist(self):
+        # two corner margin & -1 each side for the distance
+        return self.env.grid.width + self.env.grid.height - 6
+    
+    def _get_tier(self, info):
+        def get_l1_distance(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+        
+        dist = get_l1_distance(info['player_pos'], self.goal_pos)
+        if dist == 0:
+            return self.num_tiers - 1
+        else:
+            return math.floor((self.num_tiers - 1) * (1 - dist / self.max_dist))
+    
+    def _modify_reward(self, reward, info):
+        tier = self._get_tier(info)
+        return self._get_tier_reward(tier)
+
+    def log_tier_hitting_count(self, info):
+        pass
+
+
 class EmptyMiniGridTierReward(TierRewardWrapper):
     """
     Tier Reward for MiniGrid-Empty-nxn-v0
@@ -268,6 +362,14 @@ def determine_is_door_open(env):
             if isinstance(tile, Door):
                 return tile.is_open
 
+def determine_key_pos(env):
+    """Convenience hacky function to determine the key location. """
+    from minigrid.core.world_object import Key
+    for i in range(env.grid.width):
+        for j in range(env.grid.height):
+            tile = env.grid.get(i,j)
+            if isinstance(tile, Key):
+                return i, j
 
 def environment_builder(
     level_name='MiniGrid-Empty-8x8-v0',
@@ -312,6 +414,12 @@ def environment_builder(
     elif reward_fn in ('tier', 'tier_based_shaping'):
         if 'empty' in level_name.lower():
             env = EmptyMiniGridTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta)
+        
+        elif 'door' in level_name.lower():
+            env = DoorKeyMiniGridTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta)
+        
+        elif 'four' in level_name.lower():
+            env = FourRoomsMiniGridTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta)
         else:
             raise NotImplementedError('This environment does not yet support tiered rewards')
         
