@@ -32,7 +32,7 @@ parser.add_argument("--save-interval", type=int, default=50,
                     help="number of updates between two saves (default: 10, 0 means no saving)")
 parser.add_argument("--procs", type=int, default=16,
                     help="number of processes (default: 16). This is also the number of parallel envs.")
-parser.add_argument("--frames", type=int, default=200_000,
+parser.add_argument("--frames", type=float, default=1e7,
                     help="number of frames of training (default: 1e7)")
 
 # Params for environment

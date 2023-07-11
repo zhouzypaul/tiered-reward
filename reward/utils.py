@@ -84,6 +84,8 @@ def create_log_dir(dir_path, remove_existing=True, log_git=True):
             shutil.rmtree(outdir)
             print(f"Removed existing directory {outdir}")
     # create log dir
+    import pdb
+    pdb.set_trace()
     try:
         os.makedirs(outdir, exist_ok=not remove_existing)
     except OSError:
