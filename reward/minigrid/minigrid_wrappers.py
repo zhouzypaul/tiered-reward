@@ -216,6 +216,8 @@ class DoorKeyMiniGridTierReward(TierRewardWrapper):
     
     NOTE: this assumes there is only a single goal state
     """
+
+
     @cached_property
     def goal_pos(self):
         return determine_goal_pos(self.env)
@@ -225,8 +227,15 @@ class DoorKeyMiniGridTierReward(TierRewardWrapper):
         return determine_key_pos(self.env)
     
     @cached_property
-    def check_holding_key(self):
+    def door_pos(self):
+        return determine_door_pos(self.env)
+    
+    
+    def check_door_open(self):
         return determine_is_door_open(self.env)
+
+    def check_has_key(self):
+        return determine_has_key(self.env)
 
 
     @cached_property
@@ -240,18 +249,45 @@ class DoorKeyMiniGridTierReward(TierRewardWrapper):
             return abs(a[0] - b[0]) + abs(a[1] - b[1])
         
         dist_to_goal = get_l1_distance(info['player_pos'], self.goal_pos)
+        dist_to_door = get_l1_distance(info['player_pos'], self.door_pos)
         dist_to_key = get_l1_distance(info['player_pos'], self.key_pos)
 
-        holding_key = self.check_holding_key
+        door_open = self.check_door_open()
+        has_key = self.check_has_key()
 
-        if dist_to_goal == 0 and holding_key:
-            return self.num_tiers-1
-        elif dist_to_key == 0 and not holding_key:
-            return (self.num_tiers-1)//2
-        elif not holding_key:
-            return math.floor(((self.num_tiers - 1)//2) * (1 - dist_to_key / self.max_dist))
+        #tier 6: reach final goal
+        #exactly T reward
+        if dist_to_goal == 0:
+            return (self.num_tiers - 1)
+        
+        #tier 4: reached the door and opened door
+        #exactly 2T/3 reward
+        elif dist_to_door==0 and door_open:
+            return 2*(self.num_tiers-1)//3
+
+        #tier 5: walking to the goal after opening door
+        #between 2T/3 < t < T
+        elif door_open and has_key:
+            return math.floor((2*(self.num_tiers-1)//3) + ((self.num_tiers-1)//3)*(1-dist_to_goal/self.max_dist))
+
+
+        #tier 2: obtain the key
+        #exact T/3 reward
+        elif dist_to_key == 0 and has_key:
+            return (self.num_tiers-1)//3
+
+        #tier 3: obtain the key and walk to the door
+        #between T/3 < t < 2T/3
+        elif has_key and not door_open:
+            return math.floor(((self.num_tiers-1)//3) + ((self.num_tiers-1)//3)*(1-dist_to_door/self.max_dist))
+        
+        #tier 1: searching for key
+        #between 0 < t < T/3
+        elif not has_key:
+            return math.floor(((self.num_tiers-1)//3)*(1-dist_to_key/self.max_dist))
+
         else:
-            return math.floor((self.num_tiers - 1) * (1 - dist_to_goal / self.max_dist))
+            raise NotImplemented
     
     def _modify_reward(self, reward, info):
         tier = self._get_tier(info)
@@ -259,6 +295,7 @@ class DoorKeyMiniGridTierReward(TierRewardWrapper):
 
     def log_tier_hitting_count(self, info):
         pass
+
 
 
 class FourRoomsMiniGridTierReward(TierRewardWrapper):
@@ -361,6 +398,24 @@ def determine_is_door_open(env):
             tile = env.grid.get(i, j)
             if isinstance(tile, Door):
                 return tile.is_open
+
+
+
+def determine_door_pos(env):
+    """Convenient hacky function to determine the door location"""
+    from minigrid.core.world.object import Door
+
+    for i in range(env.grid.width):
+        for j in range(env.grid.height):
+            tile = env.grid.get(i,j)
+            if isinstance(tile, Door):
+                return i,j
+
+def determine_has_key(env):
+    """Convenient hacky function to determine if agent has grabbed key"""
+    from minigrid.core.world_object import Key
+
+    return isinstance(env.carrying, Key)
 
 def determine_key_pos(env):
     """Convenience hacky function to determine the key location. """
