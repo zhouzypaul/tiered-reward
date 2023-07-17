@@ -242,7 +242,7 @@ class DoorKeyMiniGridTierReward(TierRewardWrapper):
         dist_to_goal = get_l1_distance(info['player_pos'], self.goal_pos)
         dist_to_key = get_l1_distance(info['player_pos'], self.key_pos)
 
-        holding_key = self.check_holding_key()
+        holding_key = self.check_holding_key
 
         if dist_to_goal == 0 and holding_key:
             return self.num_tiers-1
