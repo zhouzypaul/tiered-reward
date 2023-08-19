@@ -11,9 +11,12 @@ from reward.minigrid.utils import device
 from reward.minigrid.agent import MyPPO
 from reward.minigrid.model import ImpalaCNN
 from reward.minigrid.minigrid_wrappers import environment_builder
-
+import pdb
+from reward.minigrid.minigrid_wrappers import get_num_goal_reaches
 
 # Parse arguments
+#global num_goal_reaches
+#num_goal_reaches = 0
 
 parser = argparse.ArgumentParser()
 
@@ -47,6 +50,7 @@ parser.add_argument("--gamma", type=float, default=0.99,
                     help="Discount factor of MDP.")
 parser.add_argument("--delta", type=float, default=5,
                     help="offset used in the custom reward function")
+parser.add_argument("--max-steps", type=int, default=None, help="change max steps for environment from default value")
 
 # Parameters for main algorithm
 parser.add_argument("--epochs", type=int, default=4,
@@ -129,7 +133,7 @@ if __name__ == "__main__":
             reward_fn=args.reward_function,
             normalize_reward=args.normalize_reward,
             grayscale=False,
-            max_steps=None,
+            max_steps=args.max_steps,
             render_mode=None
         )
         envs.append(env)
@@ -175,7 +179,8 @@ if __name__ == "__main__":
     if "optimizer_state" in status:
         algo.optimizer.load_state_dict(status["optimizer_state"])
     txt_logger.info("Optimizer loaded\n")
-
+    
+    pdb.set_trace()
     # Train model
 
     num_frames = status["num_frames"]
@@ -190,7 +195,8 @@ if __name__ == "__main__":
         logs2 = algo.update_parameters(exps)
         logs = {**logs1, **logs2}
         update_end_time = time.time()
-
+        
+        
         num_frames += logs["num_frames"]
         update += 1
 
@@ -221,7 +227,8 @@ if __name__ == "__main__":
 
             header += ["return_" + key for key in return_per_episode.keys()]
             data += return_per_episode.values()
-
+            
+            #txt_logger.info('Goal Reaches: {}'.format(get_num_goal_reaches()))
             if not already_written_header:
                 csv_logger.writerow(header)
                 already_written_header = True
@@ -230,7 +237,8 @@ if __name__ == "__main__":
             
             for field, value in zip(header, data):
                 tb_writer.add_scalar(field, value, num_frames)
-
+            
+            
         # Save status
 
         if args.save_interval > 0 and update % args.save_interval == 0:
@@ -240,3 +248,6 @@ if __name__ == "__main__":
                 status["vocab"] = preprocess_obss.vocab.vocab
             utils.save_status(status, model_dir)
             txt_logger.info("Status saved")
+
+
+    #print('Goal Reaches: ', get_num_goal_reaches())
