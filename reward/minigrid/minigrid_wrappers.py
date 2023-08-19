@@ -441,24 +441,25 @@ class FourRoomsMiniGridTierReward(TierRewardWrapper):
             return abs(a[0] - b[0]) + abs(a[1] - b[1])
         
         dist_goal = get_l1_distance(info['player_pos'], self.goal_pos) 
-        (player_c, player_r) = info['player_pos']
+        #(player_c, player_r) = info['player_pos']
         
         #pdb.set_trace() 
 
-        if self.dist_to_goal[player_c][player_r]== 0:
-            out = self.num_tiers - 1
+        #if self.dist_to_goal[player_c][player_r]== 0:
+        #    out = self.num_tiers - 1
             
-            increment_goal_reaches()
-            print('goal')
+        #    increment_goal_reaches()
+        #    print('goal')
 
-            #self.num_times_reach_goal += 1
-        else:
-            out = math.floor((self.num_tiers-1) *  ( 1 -  (self.dist_to_goal[player_c][player_r]/np.max(self.dist_to_goal)) )  )    
-        
-        #if dist_goal == 0:
-        #   out = self.num_tiers-1
+        #    #self.num_times_reach_goal += 1
         #else:
-        #   out = math.floor((self.num_tiers-1) * (1 - (dist_goal/self.max_dist)))
+        #    out = math.floor((self.num_tiers-1) *  ( 1 -  (self.dist_to_goal[player_c][player_r]/np.max(self.dist_to_goal)) )  )    
+        
+        if dist_goal == 0:
+            print('goal')
+            out = self.num_tiers-1
+        else:
+           out = math.floor((self.num_tiers-1) * (1 - (dist_goal/self.max_dist)))
         
         #'player_pos','goal_pos','tier', 'dist_to_goal'
         #df.loc[len(df.index)] = [info['player_pos'], self.goal_pos, out, dist_goal]
