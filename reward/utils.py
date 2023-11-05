@@ -84,8 +84,6 @@ def create_log_dir(dir_path, remove_existing=True, log_git=True):
             shutil.rmtree(outdir)
             print(f"Removed existing directory {outdir}")
     # create log dir
-    import pdb
-    pdb.set_trace()
     try:
         os.makedirs(outdir, exist_ok=not remove_existing)
     except OSError:
@@ -101,12 +99,6 @@ def create_log_dir(dir_path, remove_existing=True, log_git=True):
     with open(os.path.join(outdir, "start_time.txt"), "w") as f:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         f.write(timestamp)
-
-    # log git stuff
-    if log_git:
-        from pfrl.experiments.prepare_output_dir import is_under_git_control, save_git_information
-        if is_under_git_control():
-            save_git_information(outdir)
         
     return outdir
 

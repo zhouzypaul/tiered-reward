@@ -70,9 +70,6 @@ class MyPPO(PPOAlgo):
             self.mask = 1 - torch.tensor(done, device=self.device, dtype=torch.float)
             self.actions[i] = action
             self.values[i] = value
-            import pdb
-            #pdb.set_trace()
-            #print(self.reshape_reward)
             if self.reshape_reward is not None:
                 self.rewards[i] = torch.tensor([
                     self.reshape_reward(obs_, action_, reward_, done_)
@@ -83,7 +80,6 @@ class MyPPO(PPOAlgo):
                 for (i,r) in enumerate(reward):
                     self.dataframe.loc[len(self.dataframe.index)] = [info[i]['timestep'], info[i]['terminated'], info[i]['has_key'], info[i]['door_open'], r]
             else:
-                #pdb.set_trace()
                 self.rewards[i] = torch.tensor(reward, device=self.device)
                 #original_rewards = torch.tensor([ r for r in reward], device = self.device)
                 

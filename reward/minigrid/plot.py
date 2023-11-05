@@ -3,7 +3,6 @@ import os
 import pandas
 import seaborn as sns
 import matplotlib.pyplot as plt
-import pdb
 
 def plot_different_reward_comparison(base_dir, title=None):
     """

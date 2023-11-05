@@ -9,7 +9,6 @@ from gymnasium.core import Wrapper, ObservationWrapper
 from minigrid.wrappers import RGBImgObsWrapper, ImgObsWrapper, ReseedWrapper, FullyObsWrapper
 
 from reward.atari.reward_wrappers import get_k_tiered_reward
-import pdb
 import pandas as pd
 
 import threading
@@ -197,7 +196,6 @@ class TierRewardWrapper(Wrapper):
         return out
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
-        #pdb.set_trace()
         info['original_reward'] = reward
         self.log_tier_hitting_count(info)
         r = self._modify_reward(reward, info)
@@ -365,7 +363,6 @@ class DoorKeyMiniGridTierReward(TierRewardWrapper):
             #True False False False
             print(has_key, door_open, self.prev_has_key, self.prev_door_open)
             raise NotImplemented
-        #pdb.set_trace()
         #'door_open', 'has_key','dist_to_goal','dist_to_key','dist_to_goal','tier'
         #df.loc[len(df.index)] = [door_open, has_key, dist_to_key,dist_to_door, dist_to_goal, info['player_pos'], self.key_pos(), self.door_pos, self.goal_pos, out]
         #df.to_csv('./temp_doorkey_tiers.csv')
@@ -405,7 +402,6 @@ class FourRoomsMiniGridTierReward(TierRewardWrapper):
         # two corner margin & -1 each side for the distance
         #print(self.env.grid.width, self.env.grid.height)
         #print(self.env.grid.width + self.env.grid.height - 6)
-        #pdb.set_trace()
         return self.env.grid.width + self.env.grid.height - 6
     
     def auxilliary_reset(self):
@@ -443,7 +439,6 @@ class FourRoomsMiniGridTierReward(TierRewardWrapper):
         dist_goal = get_l1_distance(info['player_pos'], self.goal_pos) 
         #(player_c, player_r) = info['player_pos']
         
-        #pdb.set_trace() 
 
         #if self.dist_to_goal[player_c][player_r]== 0:
         #    out = self.num_tiers - 1
@@ -467,7 +462,6 @@ class FourRoomsMiniGridTierReward(TierRewardWrapper):
         #write_to_file([info['player_pos'], self.goal_pos, out, info['original_reward'], self.dist_to_goal[player_c][player_r], np.max(self.dist_to_goal)])
         
         #if out >= 2.0 and dist_goal > 0:
-        #    pdb.set_trace()
 
         return out
     def _modify_reward(self, reward, info):

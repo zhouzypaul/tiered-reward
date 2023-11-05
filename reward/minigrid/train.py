@@ -11,7 +11,6 @@ from reward.minigrid.utils import device
 from reward.minigrid.agent import MyPPO
 from reward.minigrid.model import ImpalaCNN
 from reward.minigrid.minigrid_wrappers import environment_builder
-import pdb
 from reward.minigrid.minigrid_wrappers import get_num_goal_reaches
 
 # Parse arguments
@@ -180,7 +179,6 @@ if __name__ == "__main__":
         algo.optimizer.load_state_dict(status["optimizer_state"])
     txt_logger.info("Optimizer loaded\n")
     
-    pdb.set_trace()
     # Train model
 
     num_frames = status["num_frames"]
