@@ -2,8 +2,11 @@ import sys
 import time
 import argparse
 import datetime
+import tempfile
+
 import torch_ac
 import tensorboardX
+import wandb
 
 import reward.minigrid.utils as utils
 import reward.utils as general_utils
@@ -98,6 +101,15 @@ if __name__ == "__main__":
         sub_dir = args.reward_function
     model_dir = utils.get_model_dir(exp_name, sub_dir, args.seed)
     general_utils.create_log_dir(model_dir, remove_existing=True)
+
+    # Set wandb
+    wandb_output_dir = tempfile.mkdtemp()  # redirect wandb output to a temp dir
+    wandb.init(
+        project="tiered-reward",
+        sync_tensorboard=True,
+        name=exp_name,
+        dir=wandb_output_dir,
+    )
 
     # Load loggers and Tensorboard writer
 
