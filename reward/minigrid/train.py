@@ -109,6 +109,7 @@ if __name__ == "__main__":
         sync_tensorboard=True,
         name=exp_name,
         dir=wandb_output_dir,
+        config=vars(args)
     )
 
     # Load loggers and Tensorboard writer
