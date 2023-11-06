@@ -23,8 +23,12 @@ class MyPPO(PPOAlgo):
             self.dataframe = pd.DataFrame(columns=['timestep','terminated','has_key','door_open','reward'])
             
         # override actions to also handle continuous actions
-        if type(self.acmodel.action_space) == gym.spaces.Box:
-            self.actions = torch.zeros(self.num_frames_per_proc, self.num_procs, self.acmodel.action_space.shape[0], device=self.device)
+        try:
+            action_space = getattr(self.acmodel, 'action_space')
+            if type(action_space) == gym.spaces.Box:
+                self.actions = torch.zeros(self.num_frames_per_proc, self.num_procs, self.acmodel.action_space.shape[0], device=self.device)
+        except AttributeError:
+            pass
 
     def collect_experiences(self):
         """

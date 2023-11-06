@@ -300,9 +300,6 @@ class ImpalaCNN(nn.Module, torch_ac.RecurrentACModel):
         NOTE: use_memory is not supported yet.
         currently not even going to bother with use_text
         """
-        assert not use_memory
-        assert not use_text
-
         super(ImpalaCNN, self).__init__()
         self.use_memory = use_memory
         assert not self.use_memory, "use_memory is not supported yet"
