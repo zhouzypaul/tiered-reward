@@ -31,6 +31,8 @@ parser.add_argument("--experiment_name", "-e", default=None,
                     help="name of the experiment (default: {ENV}_{ALGO}_{TIME}). Used to name the saving dir.")
 parser.add_argument("--debug", action="store_true", default=False,
                     help="Debug mode. Don't log wandb online.")
+parser.add_argument("--project", type=str, default="tiered-reward",
+                    help="project id for wandb")
 parser.add_argument("--seed", type=int, default=0,
                     help="random seed (default: 0)")
 parser.add_argument("--log-interval", type=int, default=10,
@@ -108,7 +110,7 @@ if __name__ == "__main__":
     wandb_output_dir = tempfile.mkdtemp()  # redirect wandb output to a temp dir
     mode = 'online' if not args.debug else 'disabled'
     wandb.init(
-        project="tiered-reward",
+        project=args.project,
         sync_tensorboard=True,
         name=exp_name,
         dir=wandb_output_dir,
