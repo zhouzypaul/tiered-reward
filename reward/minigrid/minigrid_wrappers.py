@@ -23,7 +23,7 @@ num_goal_reaches = pd.DataFrame(columns=['reached_goal'])
 
 
 global df
-df = pd.DataFrame(columns=['door_open', 'has_key','dist_to_key','dist_to_door','dist_to_goal','player_pos','key_pos','door_pos','goal_pos','tier', 'original_reward'])
+# df = pd.DataFrame(columns=['door_open', 'has_key','dist_to_key','dist_to_door','dist_to_goal','player_pos','key_pos','door_pos','goal_pos','tier', 'original_reward'])
 #df = pd.DataFrame(columns=['player_pos','goal_pos','tier','original_reward', 'dist_to_goal'])
 #df = pd.DataFrame(columns=['player_pos', 'goal_pos','tier', 'original_reward','dist_to_goal','max_dist'])
 
@@ -199,6 +199,7 @@ class TierRewardWrapper(Wrapper):
         obs, reward, terminated, truncated, info = self.env.step(action)
         #pdb.set_trace()
         info['original_reward'] = reward
+        info['terminated'] = terminated
         self.log_tier_hitting_count(info)
         r = self._modify_reward(reward, info)
         return obs, r, terminated, truncated, info
@@ -383,6 +384,49 @@ class DoorKeyMiniGridTierReward(TierRewardWrapper):
     def log_tier_hitting_count(self, info):
         pass
 
+class CrossingMiniGridTierReward(TierRewardWrapper):
+    """
+    Tier Reward for MiniGrid-LavaCrossingS9N1-v0
+    
+    Tiers are assigned based on the BFS distance between the agent and the goal
+    
+    The goal is always its own tier -- the highest tier.
+    The rest of the tiers are spread out evenly according to the BFS distance.
+    
+    NOTE: this assumes there is only a single goal state
+    """
+    @cached_property
+    def goal_pos(self):
+        return determine_goal_pos(self.env)
+    
+    @cached_property
+    def max_dist(self):
+        # two corner margin & -1 each side for the distance
+        return self.env.grid.width + self.env.grid.height - 6
+    
+    def _get_tier(self, info):
+        def get_l1_distance(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+        
+        dist_goal = get_l1_distance(info['player_pos'], self.goal_pos) 
+
+        #case 2: episode has terminated but the agent has not reached the goal + there are still steps in teh episode
+        if dist_goal == 0:
+            out = self.num_tiers-1
+        
+        elif info['terminated']  and (self.env.step_count < self.env.max_steps):
+            out = 0
+        else:
+           out = math.floor((self.num_tiers-1) * (1 - (dist_goal/self.max_dist)))
+        
+        return out
+
+    def _modify_reward(self, reward, info):
+        tier = self._get_tier(info)
+        return self._get_tier_reward(tier)
+
+    def log_tier_hitting_count(self, info):
+        pass
 
 
 class FourRoomsMiniGridTierReward(TierRewardWrapper):
@@ -527,6 +571,12 @@ class GrayscaleWrapper(ObservationWrapper):
         observation = observation.mean(axis=0)[np.newaxis, :, :]
         return observation.astype(np.uint8)
 
+def check_if_positon_lava(env, x_cor, y_cor):
+    
+    from minigrid.core.world_object import Lava
+    
+    return True if isinstance(env.grid.get(x_cor, y_cor), Lava) else False
+
 
 def determine_goal_pos(env):
     """Convinence hacky function to determine the goal location."""
@@ -647,6 +697,9 @@ def environment_builder(
         elif 'four' in level_name.lower():
             env = FourRoomsMiniGridTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta)
             #env.store_start_pos()
+        elif 'crossing' in level_name.lower():
+            env = CrossingMiniGridTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta)
+
         else:
             raise NotImplementedError('This environment does not yet support tiered rewards')
         
