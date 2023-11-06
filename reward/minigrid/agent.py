@@ -2,6 +2,7 @@ import torch
 from torch_ac import PPOAlgo
 from torch_ac.utils import DictList
 import pandas as pd 
+import gym
 import os 
 
 class MyPPO(PPOAlgo):
@@ -20,6 +21,10 @@ class MyPPO(PPOAlgo):
             self.dataframe = pd.read_csv('./doorkey_outputs.csv')
         else:
             self.dataframe = pd.DataFrame(columns=['timestep','terminated','has_key','door_open','reward'])
+            
+        # override actions to also handle continuous actions
+        if type(self.acmodel.action_space) == gym.spaces.Box:
+            self.actions = torch.zeros(self.num_frames_per_proc, self.num_procs, self.acmodel.action_space.shape[0], device=self.device)
 
     def collect_experiences(self):
         """
@@ -147,7 +152,13 @@ class MyPPO(PPOAlgo):
             # T x P -> P x T -> (P * T) x 1
             exps.mask = self.masks.transpose(0, 1).reshape(-1).unsqueeze(1)
         # for all tensors below, T x P -> P x T -> P * T
-        exps.action = self.actions.transpose(0, 1).reshape(-1)
+        if self.actions.dim() == 3:
+            # continuous actions
+            exps.action = self.actions.transpose(0, 1).reshape(-1, self.actions.shape[-1])
+        else:
+            assert self.actions.dim() == 2
+            # discrete actions
+            exps.action = self.actions.transpose(0, 1).reshape(-1)
         exps.value = self.values.transpose(0, 1).reshape(-1)
         exps.reward = self.rewards.transpose(0, 1).reshape(-1)
         exps.advantage = self.advantages.transpose(0, 1).reshape(-1)

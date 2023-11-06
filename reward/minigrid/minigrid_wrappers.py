@@ -578,6 +578,7 @@ def determine_has_key(env):
 
     return isinstance(env.carrying, Key)
 
+
 def determine_key_pos(env):
     """Convenience hacky function to determine the key location. """
     from minigrid.core.world_object import Key
@@ -587,9 +588,7 @@ def determine_key_pos(env):
             if isinstance(tile, Key):
                 return i, j
 
-def determine_start_pos(env):
-    """Convenient function to determine the start position of the agent"""
-    None
+
 def environment_builder(
     level_name='MiniGrid-Empty-8x8-v0',
     seed=42,

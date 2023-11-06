@@ -12,8 +12,8 @@ import reward.minigrid.utils as utils
 import reward.utils as general_utils
 from reward.minigrid.utils import device
 from reward.minigrid.agent import MyPPO
-from reward.minigrid.model import ImpalaCNN
-from reward.minigrid.minigrid_wrappers import environment_builder
+from reward.minigrid.model import ImpalaCNN, StateSpaceACModel
+from reward.minigrid.envs import environment_builder
 from reward.minigrid.minigrid_wrappers import get_num_goal_reaches
 
 # Parse arguments
@@ -29,6 +29,8 @@ parser.add_argument("--env", required=True,
                     help="name of the environment to train on (REQUIRED)")
 parser.add_argument("--experiment_name", "-e", default=None,
                     help="name of the experiment (default: {ENV}_{ALGO}_{TIME}). Used to name the saving dir.")
+parser.add_argument("--debug", action="store_true", default=False,
+                    help="Debug mode. Don't log wandb online.")
 parser.add_argument("--seed", type=int, default=0,
                     help="random seed (default: 0)")
 parser.add_argument("--log-interval", type=int, default=10,
@@ -104,12 +106,14 @@ if __name__ == "__main__":
 
     # Set wandb
     wandb_output_dir = tempfile.mkdtemp()  # redirect wandb output to a temp dir
+    mode = 'online' if not args.debug else 'disabled'
     wandb.init(
         project="tiered-reward",
         sync_tensorboard=True,
         name=exp_name,
         dir=wandb_output_dir,
-        config=vars(args)
+        config=vars(args),
+        mode=mode,
     )
 
     # Load loggers and Tensorboard writer
@@ -160,15 +164,22 @@ if __name__ == "__main__":
     txt_logger.info("Training status loaded\n")
 
     # Load observations preprocessor
-
-    obs_space, preprocess_obss = utils.get_obss_preprocessor(envs[0].observation_space)
-    if "vocab" in status:
-        preprocess_obss.vocab.load_vocab(status["vocab"])
-    txt_logger.info("Observations preprocessor loaded")
+    if 'MiniGrid' in args.env:
+        obs_space, preprocess_obss = utils.get_obss_preprocessor(envs[0].observation_space)
+        if "vocab" in status:
+            preprocess_obss.vocab.load_vocab(status["vocab"])
+        txt_logger.info("Observations preprocessor loaded")
+    else:
+        obs_space = envs[0].observation_space
+        preprocess_obss = None
 
     # Load model
-    acmodel = ImpalaCNN(obs_space['image'], num_outputs=envs[0].action_space.n, use_memory=args.mem, use_text=args.text)
-    # acmodel = ACModel(obs_space, envs[0].action_space, args.mem, args.text)
+    if 'MiniGrid' in args.env:
+        acmodel = ImpalaCNN(obs_space['image'], num_outputs=envs[0].action_space.n, use_memory=args.mem, use_text=args.text)
+    elif 'antmaze' in args.env:
+        acmodel = StateSpaceACModel(obs_space, envs[0].action_space, args.mem, args.text)
+    else:
+        raise NotImplementedError('environment not supported')
     if "model_state" in status:
         acmodel.load_state_dict(status["model_state"])
     acmodel.to(device)
