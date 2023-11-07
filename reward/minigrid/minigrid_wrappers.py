@@ -384,7 +384,7 @@ class DoorKeyMiniGridTierReward(TierRewardWrapper):
     def log_tier_hitting_count(self, info):
         pass
 
-class CrossingMiniGridTierRewardOld(TierRewardWrapper):
+class CrossingMiniGridTierReward(TierRewardWrapper):
     """
     Tier Reward for MiniGrid-LavaCrossingS9N1-v0
     
@@ -411,10 +411,8 @@ class CrossingMiniGridTierRewardOld(TierRewardWrapper):
         def get_l1_distance(a, b):
             return abs(a[0] - b[0]) + abs(a[1] - b[1])
         
-        crossing_loc = self.crossing_pos()
-        
         dist_goal = get_l1_distance(info['player_pos'], self.goal_pos)
-        dist_crossing = get_l1_distance(info['player_pos'], crossing_loc)
+       
 
         #case 2: episode has terminated but the agent has not reached the goal + there are still steps in teh episode
         if dist_goal == 0:
@@ -422,11 +420,9 @@ class CrossingMiniGridTierRewardOld(TierRewardWrapper):
             out = self.num_tiers-1
         elif info['terminated'] and (self.env.step_count < self.env.max_steps):
             out = 0
-        elif info['player_pos'][0] <= crossing_loc[0]:
-            out = 1 + math.floor((self.num_tiers-2) * (1 - (dist_crossing/self.max_dist)))
         else:
            #when not hitting lava but just moving around, distribute tiers between 1 to self.num_tiers-1 inclusive
-           out = + math.floor((self.num_tiers-2) * (1 - (dist_goal/self.max_dist)))
+           out = 1 + math.floor((self.num_tiers-2) * (1 - (dist_goal/self.max_dist)))
         
         return out
 
@@ -438,7 +434,7 @@ class CrossingMiniGridTierRewardOld(TierRewardWrapper):
         pass
 
 
-class CrossingMiniGridTierReward(TierRewardWrapper):
+class CrossingMiniGridTierRewardOld(TierRewardWrapper):
     """
     Tier Reward for MiniGrid-LavaCrossingS9N1-v0
     
@@ -508,7 +504,7 @@ class CrossingMiniGridTierReward(TierRewardWrapper):
         elif get_l1_distance(player_pos, self.goal_pos) == 0:
             out = self.num_tiers-1
         else:
-            out = 1 + round((self.num_tiers-2)*(1 - (bfs_matrix[player_pos[1], player_pos[0]]/np.max(bfs_matrix)) ))
+            out = 1 + np.floor((self.num_tiers-2)*(1 - (bfs_matrix[player_pos[1], player_pos[0]]/np.max(bfs_matrix)) ))
 
         # print(player_pos, self.goal_pos, out, bfs_matrix[player_pos[1], player_pos[0]], np.max(bfs_matrix))
         
