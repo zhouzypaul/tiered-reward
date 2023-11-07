@@ -412,14 +412,15 @@ class CrossingMiniGridTierReward(TierRewardWrapper):
 
         #case 2: episode has terminated but the agent has not reached the goal + there are still steps in teh episode
         if dist_goal == 0:
+            #when reaching goal return num tiers -1 (max tier reward)
             out = self.num_tiers-1
         
         elif info['terminated'] and (self.env.step_count < self.env.max_steps):
-            im = Image.fromarray(info['observation'])
-            im.save('./image_{}.jpeg'.format(len(os.listdir('.'))))
+            #when hitting lava, return tier 0
             out = 0
         else:
-           out = math.floor((self.num_tiers-1) * (1 - (dist_goal/self.max_dist)))
+           #when not hitting lava but just moving around, distribute tiers between 1 to self.num_tiers-1 inclusive
+           out = 1 + math.floor((self.num_tiers-2) * (1 - (dist_goal/self.max_dist)))
         
         return out
 
