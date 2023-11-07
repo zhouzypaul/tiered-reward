@@ -449,7 +449,7 @@ class CrossingMiniGridTierReward(TierRewardWrapper):
     
     NOTE: this assumes there is only a single goal state
     """
-    @cached_property
+    @property
     def goal_pos(self):
         return determine_goal_pos(self.env)
     
@@ -506,7 +506,7 @@ class CrossingMiniGridTierReward(TierRewardWrapper):
         elif get_l1_distance(player_pos, self.goal_pos) == 0:
             out = self.num_tiers-1
         else:
-            out = 1 + (self.num_tiers-2)*(1 - (bfs_matrix[player_pos[1], player_pos[0]]/np.max(bfs_matrix)) ) 
+            out = 1 + math.round((self.num_tiers-2)*(1 - (bfs_matrix[player_pos[1], player_pos[0]]/np.max(bfs_matrix)) ))
 
         
         return out
