@@ -485,6 +485,8 @@ class CrossingMiniGridTierReward(TierRewardWrapper):
                 #left and right
                 unvisited_locs.append(((curr_loc[0]-1, curr_loc[1]), dist+1))
                 unvisited_locs.append(((curr_loc[0]+1, curr_loc[1]), dist+1))
+        
+        return bfs_matrix
     
     @cached_property
     def max_dist(self):
