@@ -501,7 +501,7 @@ class CrossingMiniGridTierReward(TierRewardWrapper):
         player_pos = info['player_pos']
         bfs_matrix = self.populate_bfs_distance()
 
-        print(player_pos, self.goal_pos)
+        
 
         if bfs_matrix[player_pos[1], player_pos[0]] < 0:
             out = 0
@@ -510,6 +510,7 @@ class CrossingMiniGridTierReward(TierRewardWrapper):
         else:
             out = 1 + round((self.num_tiers-2)*(1 - (bfs_matrix[player_pos[1], player_pos[0]]/np.max(bfs_matrix)) ))
 
+        print(player_pos, self.goal_pos, out)
         
         return out
 
