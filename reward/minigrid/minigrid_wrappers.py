@@ -479,12 +479,12 @@ class CrossingMiniGridTierReward(TierRewardWrapper):
                 bfs_matrix[curr_loc[1], curr_loc[0]] = dist
 
                 #above and below
-                unvisited_locs.append((curr_loc[0], curr_loc[1]-1), dist+1)
-                unvisited_locs.append((curr_loc[0], curr_loc[1]+1), dist+1)
+                unvisited_locs.append(((curr_loc[0], curr_loc[1]-1), dist+1))
+                unvisited_locs.append(((curr_loc[0], curr_loc[1]+1), dist+1))
 
                 #left and right
-                unvisited_locs.append((curr_loc[0]-1, curr_loc[1]), dist+1)
-                unvisited_locs.append((curr_loc[0]+1, curr_loc[1]), dist+1)
+                unvisited_locs.append(((curr_loc[0]-1, curr_loc[1]), dist+1))
+                unvisited_locs.append(((curr_loc[0]+1, curr_loc[1]), dist+1))
     
     @cached_property
     def max_dist(self):
