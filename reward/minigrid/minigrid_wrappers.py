@@ -471,12 +471,10 @@ class CrossingMiniGridTierReward(TierRewardWrapper):
             if curr_loc[1] < 0 or curr_loc[1] >= self.env.grid.height:
                 continue
 
-            if isinstance(self.env.grid.get(curr_loc[1],curr_loc[0])) is Wall:
+            if isinstance(self.env.grid.get(curr_loc[1],curr_loc[0]), Wall) or isinstance(self.env.grid.get(curr_loc[1],curr_loc[0]), Lava) :
                 bfs_matrix[curr_loc[1], curr_loc[0]] = -1
                 continue
-            elif isinstance(self.env.grid.get(curr_loc[1],curr_loc[0])) is Lava:
-                bfs_matrix[curr_loc[1], curr_loc[0]] = -1
-                continue
+            
             elif bfs_matrix[curr_loc[1],curr_loc[0]] == float('-inf'):
                 bfs_matrix[curr_loc[1], curr_loc[0]] = dist
 
