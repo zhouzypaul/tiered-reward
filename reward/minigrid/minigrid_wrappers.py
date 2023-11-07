@@ -7,7 +7,7 @@ from PIL import Image
 import gymnasium as gym
 from gymnasium.core import Wrapper, ObservationWrapper
 from minigrid.wrappers import RGBImgObsWrapper, ImgObsWrapper, ReseedWrapper, FullyObsWrapper
-
+import os 
 from reward.atari.reward_wrappers import get_k_tiered_reward
 import pdb
 import pandas as pd
@@ -65,13 +65,14 @@ class MinigridInfoWrapper(Wrapper):
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
         self._timestep += 1
-        info = self._modify_info_dict(info, terminated, truncated)
+        info = self._modify_info_dict(info, terminated, truncated, obs)
         return obs, reward, terminated, truncated, info
 
-    def _modify_info_dict(self, info, terminated=False, truncated=False):
+    def _modify_info_dict(self, info, terminated=False, truncated=False, obs=None):
         info['player_pos'] = tuple(self.env.agent_pos)
         info['player_x'] = self.env.agent_pos[0]
         info['player_y'] = self.env.agent_pos[1]
+        info['observation'] = obs
         info['truncated'] = truncated
         info['terminated'] = terminated
         info['needs_reset'] = truncated  # pfrl needs this flag
@@ -199,7 +200,6 @@ class TierRewardWrapper(Wrapper):
         obs, reward, terminated, truncated, info = self.env.step(action)
         #pdb.set_trace()
         info['original_reward'] = reward
-        info['terminated'] = terminated
         self.log_tier_hitting_count(info)
         r = self._modify_reward(reward, info)
         return obs, r, terminated, truncated, info
@@ -414,7 +414,9 @@ class CrossingMiniGridTierReward(TierRewardWrapper):
         if dist_goal == 0:
             out = self.num_tiers-1
         
-        elif info['terminated']  and (self.env.step_count < self.env.max_steps):
+        elif info['terminated'] and (self.env.step_count < self.env.max_steps):
+            im = Image.fromarray(info['observation'])
+            im.save('./image_{}.jpeg'.format(len(os.listdir('.'))))
             out = 0
         else:
            out = math.floor((self.num_tiers-1) * (1 - (dist_goal/self.max_dist)))
