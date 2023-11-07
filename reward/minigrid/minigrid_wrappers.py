@@ -476,7 +476,7 @@ class CrossingMiniGridTierReward(TierRewardWrapper):
                 continue
             
             elif bfs_matrix[curr_loc[1],curr_loc[0]] == float('-inf'):
-                bfs_matrix[curr_loc[1], curr_loc[0]] = dist
+                bfs_matrix[curr_loc[1], curr_loc[0]] = int(dist)
 
                 #above and below
                 unvisited_locs.append(((curr_loc[0], curr_loc[1]-1), dist+1))
