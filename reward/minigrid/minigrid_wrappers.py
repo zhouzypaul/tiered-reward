@@ -422,7 +422,7 @@ class CrossingMiniGridTierReward(TierRewardWrapper):
             out = 0
         else:
            #when not hitting lava but just moving around, distribute tiers between 1 to self.num_tiers-1 inclusive
-           out = 1 + math.floor((self.num_tiers-2) * (1 - (dist_goal/self.max_dist)))
+           out = 1 + round((self.num_tiers-2) * (1 - (dist_goal/self.max_dist)))
         
         print(info['player_pos'], self.goal_pos, out, dist_goal, self.max_dist)
         return out
