@@ -258,6 +258,15 @@ class TierBasedShapingReward(Wrapper):
 
         
         return next_obs, shaped_reward, terminated, truncated, info
+    
+    
+class OriginalReward(TierRewardWrapper):
+    """dummy wrapper so we can log info['original_reward'] without breaking the train loop"""
+    def _modify_reward(self, reward, info):
+        return reward
+
+    def log_tier_hitting_count(self, info):
+        pass
 
 
 class DoorKeyMiniGridTierReward(TierRewardWrapper):
@@ -806,6 +815,7 @@ def environment_builder(
         
     else:
         assert reward_fn == 'original'
+        env = OriginalReward(env, num_tiers=None, gamma=gamma, delta=None)
         
     # normalize reward
     if normalize_reward:
