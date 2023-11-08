@@ -57,12 +57,12 @@ def plot_different_reward_comparison(base_dir, title=None):
         data = data.sort_values(by=['Reward Type'])
     else:
         
-        palette = {3 : 'tab:blue', 5: 'tab:green', 7:'tab:orange', 9:'tab:red', 12:'tab:purple'}
+        palette = {3 : 'tab:blue', 5: 'tab:green', 7:'tab:orange', 9:'tab:red'}
         data = data.replace('3-tiers',3)
         data = data.replace('5-tiers',5)
         data = data.replace('7-tiers',7)
         data = data.replace('9-tiers',9)
-        data = data.replace('12-tiers',12)
+        #data = data.replace('12-tiers',12)
         data['Number of Tiers'] = data['reward_type']
 
 
@@ -72,9 +72,9 @@ def plot_different_reward_comparison(base_dir, title=None):
         data=data,
         x='frames',
         y='original_return_mean',
-        hue='Reward Type' if 'Multi' not in base_dir else 'Number of Tiers',
-        palette = palette
+        hue='Reward Type' if 'Multi' not in base_dir else 'Number of Tiers'
     )
+    #removed argument: palette = palette
     plt.xlabel('Steps')
     plt.ylabel('Episodic Returns')
     plt_title = title or os.path.basename(base_dir)
