@@ -156,7 +156,12 @@ def plot_from_wandb_data(data_path="project.pkl", title=None):
         plt.xlabel('Steps')
         plt.ylabel('Episodic Returns')
         plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
-        plt_title = title or f"Different Number of Tiers: {env.split('-')[1]}"
+        # increase the font size (legend only)
+        plt.rcParams.update({'font.size': 18})
+        plt.legend(title='Number of Tiers', fontsize=18, loc='lower right')
+        # expand the figure lower
+        plt.subplots_adjust(bottom=0.15, left=0.15)
+        plt_title = title or f"{env.split('-')[1]}"
         plt.title(plt_title)
         save_path = os.path.join(f'compare_returns_{env}.png')
         plt.savefig(save_path)
