@@ -93,7 +93,7 @@ def plot_from_wandb_data(data_path="project.pkl", title=None):
         api = wandb.Api()
 
         # Project is specified by <entity/project-name>
-        runs = api.runs("zhouzypaul/tiered-reward")
+        runs = api.runs("zhouzypaul/tiered-reward-compare")
 
         summary_list, config_list, name_list, history_list = [], [], [], []
         for run in runs: 
@@ -141,7 +141,16 @@ def plot_from_wandb_data(data_path="project.pkl", title=None):
     
     # iterate over the different envs and plot
     envs = data['env'].unique()
-    data['Number of Tiers'] = data['num_tiers']
+    envs = [
+        'MiniGrid-Empty-8x8-v0',
+        'MiniGrid-DoorKey-5x5-v0',
+        'MiniGrid-FourRooms-v0',
+    ]
+    data['Reward Type'] = data['reward_function']
+    # change key names
+    data = data.replace('step_penalty', 'Action Penalty')
+    data = data.replace('tier_based_shaping','Tier Based Shaping')
+    data = data.replace('tier','Tiered')
     for env in envs:
         env_data = data[data['env'] == env]
         # episodic return
@@ -149,19 +158,25 @@ def plot_from_wandb_data(data_path="project.pkl", title=None):
             data=env_data,
             x='frames',
             y='original_return_mean',
-            hue='Number of Tiers',
-            palette = {3:'tab:blue', 5: 'tab:green', 7: 'tab:red',  9: 'tab:orange', 12: 'tab:purple'},
+            hue='Reward Type',
+            palette = {'Tiered':'tab:green', 'Action Penalty': 'tab:blue', 'Tier Based Shaping': 'tab:orange'},
             errorbar="se",
         )
         plt.xlabel('Steps')
         plt.ylabel('Episodic Returns')
         plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
         # increase the font size (legend only)
-        plt.rcParams.update({'font.size': 18})
-        plt.legend(title='Number of Tiers', fontsize=18, loc='lower right')
+        if 'Empty' in env:
+            plt.rcParams.update({'font.size': 12})
+            plt.legend(title='Reward Type', fontsize=12, loc='lower right')
+        else:
+            # don't show legend for other envs
+            plt.legend().remove()
         # expand the figure lower
         plt.subplots_adjust(bottom=0.15, left=0.15)
         plt_title = title or f"{env.split('-')[1]}"
+        if plt_title == 'Empty':
+            plt_title = 'EmptyGrid'
         plt.title(plt_title)
         save_path = os.path.join(f'compare_returns_{env}.png')
         plt.savefig(save_path)
