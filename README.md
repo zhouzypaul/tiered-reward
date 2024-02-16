@@ -1,5 +1,5 @@
-# reward
-This is the code for the paper [Specifying Behavior Preference with Tiered Reward Functions](https://arxiv.org/abs/2212.03733)
+# Tierede Reward
+This is the code for the paper [Tiered Reward Functions: Specifying and Fast Learning of Desired Behavior](https://arxiv.org/abs/2212.03733)
 
 ## requirements
 Python 3.8+
