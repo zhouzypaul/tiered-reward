@@ -17,6 +17,7 @@ def plot_flag_grid_learning_results(results_dir, gamma=0.9, q_init=0):
     df = pd.read_csv(csv_path)
     df = df[df.Episode <= 160]  # zoom in on earlier episodes
     df = df.sort_values(by='Reward Type')
+    df['Reward Type'] = df['Reward Type'].replace('Tiered', 'Tiered (Ours)')
     sns.lineplot(
         data=df,
         x='Episode',
@@ -24,11 +25,14 @@ def plot_flag_grid_learning_results(results_dir, gamma=0.9, q_init=0):
         hue='Reward Type',
         style='Reward Type',
     )
-    plt.title(r'Flag Grid: $\gamma=$' + str(gamma) + r', $Q_{init} = $' + str(q_init))
-    plt.xlabel('Episode')
-    plt.ylabel('Steps Taken to Reach Goal')
-    # plt.ylim(0, 700)
-    # plt.legend(loc="upper right")
+    plt.title(r'Flag Grid: $\gamma=$' + str(gamma) + r', $Q_{init} = $' + str(q_init), fontsize=16)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.xlabel('Episode', fontsize=14)
+    plt.ylabel('Steps Taken to Reach Goal', fontsize=14)
+    plt.legend(title='Reward Type', fontsize=12, title_fontsize=12)
+    # plt.legend().remove()
+    # plt.ylim(0, 1000)
     save_path = os.path.join(os.path.dirname(results_dir), f'flag_grid_{gamma}.png')
     plt.savefig(save_path)
     print(f'saved to {save_path}')
