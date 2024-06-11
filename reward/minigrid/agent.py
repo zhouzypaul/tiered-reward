@@ -89,19 +89,12 @@ class MyPPO(PPOAlgo):
                 for (i,r) in enumerate(reward):
                     self.dataframe.loc[len(self.dataframe.index)] = [info[i]['timestep'], info[i]['terminated'], info[i]['has_key'], info[i]['door_open'], r]
             else:
-                self.rewards[i] = torch.tensor(reward, device=self.device)
-                #original_rewards = torch.tensor([ r for r in reward], device = self.device)
-                
-                #for (i,r) in enumerate(reward):
-                #    self.dataframe.loc[len(self.dataframe.index)] = [info[i]['timestep'], info[i]['terminated'], info[i]['has_key'], info[i]['door_open'], r]
-            
+                self.rewards[i] = torch.tensor(reward, device=self.device)           
             
             original_rewards = torch.tensor([info_['original_reward'] for info_ in info], device=self.device)
-            #original_rewards = torch.tensor([ r for r in reward], device = self.device)
             self.log_probs[i] = dist.log_prob(action)
 
             # Update log values
-
             self.log_episode_return += torch.tensor(reward, device=self.device, dtype=torch.float)
             self.log_episode_reshaped_return += self.rewards[i]
             self.log_episode_original_return += original_rewards

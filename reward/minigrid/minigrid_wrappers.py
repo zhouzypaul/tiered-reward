@@ -20,13 +20,7 @@ lock = threading.Lock()
 global num_goal_reaches
 num_goal_reaches = pd.DataFrame(columns=['reached_goal'])
 
-
 global df
-# df = pd.DataFrame(columns=['door_open', 'has_key','dist_to_key','dist_to_door','dist_to_goal','player_pos','key_pos','door_pos','goal_pos','tier', 'original_reward'])
-#df = pd.DataFrame(columns=['player_pos','goal_pos','tier','original_reward', 'dist_to_goal'])
-#df = pd.DataFrame(columns=['player_pos', 'goal_pos','tier', 'original_reward','dist_to_goal','max_dist'])
-
-#python3 -m reward.minigrid.train --algo ppo --env MiniGrid-FourRooms-v0 -e MiniGrid-Multi-FourRooms --save-interval 10 --log-interval 1 --frames 200000 --reward-function tier --num-tiers 3 --seed 0 -n --gamma 0.5
 
 
 def write_to_file(row_data):
@@ -543,8 +537,6 @@ class FourRoomsMiniGridTierReward(TierRewardWrapper):
     @cached_property
     def max_dist(self):
         # two corner margin & -1 each side for the distance
-        #print(self.env.grid.width, self.env.grid.height)
-        #print(self.env.grid.width + self.env.grid.height - 6)
         return self.env.grid.width + self.env.grid.height - 6
     
     def auxilliary_reset(self):
@@ -580,31 +572,13 @@ class FourRoomsMiniGridTierReward(TierRewardWrapper):
             return abs(a[0] - b[0]) + abs(a[1] - b[1])
         
         dist_goal = get_l1_distance(info['player_pos'], self.goal_pos) 
-        #(player_c, player_r) = info['player_pos']
-        
-
-        #if self.dist_to_goal[player_c][player_r]== 0:
-        #    out = self.num_tiers - 1
-            
-        #    increment_goal_reaches()
-        #    print('goal')
-
-        #    #self.num_times_reach_goal += 1
-        #else:
-        #    out = math.floor((self.num_tiers-1) *  ( 1 -  (self.dist_to_goal[player_c][player_r]/np.max(self.dist_to_goal)) )  )    
+        #(player_c, player_r) = info['player_pos']    
         
         if dist_goal == 0:
             print('goal')
             out = self.num_tiers-1
         else:
            out = math.floor((self.num_tiers-1) * (1 - (dist_goal/self.max_dist)))
-        
-        #'player_pos','goal_pos','tier', 'dist_to_goal'
-        #df.loc[len(df.index)] = [info['player_pos'], self.goal_pos, out, dist_goal]
-        #df.to_csv('./new_fourrooms_tiers.csv')
-        #write_to_file([info['player_pos'], self.goal_pos, out, info['original_reward'], self.dist_to_goal[player_c][player_r], np.max(self.dist_to_goal)])
-        
-        #if out >= 2.0 and dist_goal > 0:
 
         return out
     def _modify_reward(self, reward, info):
