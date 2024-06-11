@@ -150,7 +150,7 @@ def plot_from_wandb_data(data_path="project.pkl", title=None):
     # change key names
     data = data.replace('step_penalty', 'Action Penalty')
     data = data.replace('tier_based_shaping','Tier Based Shaping')
-    data = data.replace('tier','Tiered')
+    data = data.replace('tier','Tiered (Ours)')
     for env in envs:
         env_data = data[data['env'] == env]
         # episodic return
@@ -159,16 +159,23 @@ def plot_from_wandb_data(data_path="project.pkl", title=None):
             x='frames',
             y='original_return_mean',
             hue='Reward Type',
-            palette = {'Tiered':'tab:green', 'Action Penalty': 'tab:blue', 'Tier Based Shaping': 'tab:orange'},
+            palette = {'Tiered (Ours)':'tab:green', 'Action Penalty': 'tab:blue', 'Tier Based Shaping': 'tab:orange'},
             errorbar="se",
         )
-        plt.xlabel('Steps')
-        plt.ylabel('Episodic Returns')
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.xlabel('Steps', fontsize=12)
+        plt.ylabel('Episodic Returns', fontsize=12)
         plt.ticklabel_format(style='sci', axis='x', scilimits=(0,0))
         # increase the font size (legend only)
         if 'Empty' in env:
             plt.rcParams.update({'font.size': 12})
-            plt.legend(title='Reward Type', fontsize=12, loc='lower right')
+            # order the legend
+            handles, labels = plt.gca().get_legend_handles_labels()
+            order = [0, 2, 1]
+            handles = [handles[idx] for idx in order]
+            labels = [labels[idx] for idx in order]
+            plt.legend(handles, labels, title='Reward Type', fontsize=12, loc='lower right')
         else:
             # don't show legend for other envs
             plt.legend().remove()

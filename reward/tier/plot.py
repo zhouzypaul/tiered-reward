@@ -64,6 +64,7 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
         clean_df = pd.concat(clean_df, ignore_index=True)
         data.append(clean_df)
     data = pd.concat(data, ignore_index=True)
+    data['Reward Type'] = data['Reward Type'].replace('Tiered', 'Tiered (Ours)')
 
     # time till goal
     sns.lineplot(
@@ -73,10 +74,13 @@ def compare_goal_hitting_stat_with_different_tiers(results_dir, tiers_to_compare
         hue='Reward Type',
         style='Reward Type',
     )
-    plt.title(f'{pretty_env_name(env_name)}')
-    plt.xlabel('Number of Tiers')
-    plt.ylabel('Steps Till First Reaching Goal')
-    plt.xticks(tiers_to_compare)
+    plt.title(f'{pretty_env_name(env_name)}', fontsize=16)
+    plt.xlabel('Number of Tiers', fontsize=14)
+    plt.ylabel('Steps Till First Reaching Goal', fontsize=14)
+    plt.xticks(tiers_to_compare, fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.legend(title='Reward Type', fontsize=12, title_fontsize=12)
+    plt.legend().remove()
     save_path = os.path.join(results_dir, 'learning_time.png')
     plt.savefig(save_path)
     print(f'saved to {save_path}')
