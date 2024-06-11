@@ -1,5 +1,5 @@
 # Tierede Reward
-This is the code for the paper [Tiered Reward Functions: Specifying and Fast Learning of Desired Behavior](https://arxiv.org/abs/2212.03733)
+This is the code for the paper [Tiered Reward Functions: Specifying and Fast Learning of Desired Behavior](https://arxiv.org/abs/2212.03733) presented at the [Reinforcement Learning Conference 2024](https://rl-conference.cc).
 
 ## requirements
 Python 3.8+
