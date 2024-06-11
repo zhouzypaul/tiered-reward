@@ -42,9 +42,10 @@ def plot_grid_reward(gw, plot_name_prefix, results_dir, reward_vec=None, plot_ov
             gw_plot.ax.add_patch(square)
         # show value
         gw_plot.ax.text(xy[0] + .5, xy[1] + .5,
-                             f"{r : .2f}",
-                             fontsize=10,
-                             color=get_contrast_color(color),
+                             f"{r : .1f}",
+                             fontsize=12,
+                             fontweight='bold',
+                             color='black',
                              horizontalalignment='center',
                              verticalalignment='center')
     

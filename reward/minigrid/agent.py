@@ -1,7 +1,9 @@
 import torch
 from torch_ac import PPOAlgo
 from torch_ac.utils import DictList
-
+import pandas as pd 
+import gym
+import os 
 
 class MyPPO(PPOAlgo):
     """
@@ -14,7 +16,20 @@ class MyPPO(PPOAlgo):
         # add extra logging stuff
         self.log_episode_original_return = torch.zeros(self.num_procs, device=self.device)
         self.log_original_return = [0] * self.num_procs
-    
+        
+        if os.path.exists('./doorkey_outputs.csv'):
+            self.dataframe = pd.read_csv('./doorkey_outputs.csv')
+        else:
+            self.dataframe = pd.DataFrame(columns=['timestep','terminated','has_key','door_open','reward'])
+            
+        # override actions to also handle continuous actions
+        try:
+            action_space = getattr(self.acmodel, 'action_space')
+            if type(action_space) == gym.spaces.Box:
+                self.actions = torch.zeros(self.num_frames_per_proc, self.num_procs, self.acmodel.action_space.shape[0], device=self.device)
+        except AttributeError:
+            pass
+
     def collect_experiences(self):
         """
         Adds extra logging stuff: keep track of info['original_reward'].
@@ -69,15 +84,17 @@ class MyPPO(PPOAlgo):
                     self.reshape_reward(obs_, action_, reward_, done_)
                     for obs_, action_, reward_, done_ in zip(obs, action, reward, done)
                 ], device=self.device)
+                original_rewards = torch.tensor([info_['original_reward'] for info_ in info], device=self.device)
+
+                for (i,r) in enumerate(reward):
+                    self.dataframe.loc[len(self.dataframe.index)] = [info[i]['timestep'], info[i]['terminated'], info[i]['has_key'], info[i]['door_open'], r]
             else:
-                self.rewards[i] = torch.tensor(reward, device=self.device)
-            original_rewards = torch.tensor(
-                [info_['original_reward'] for info_ in info], device=self.device
-            )
+                self.rewards[i] = torch.tensor(reward, device=self.device)           
+            
+            original_rewards = torch.tensor([info_['original_reward'] for info_ in info], device=self.device)
             self.log_probs[i] = dist.log_prob(action)
 
             # Update log values
-
             self.log_episode_return += torch.tensor(reward, device=self.device, dtype=torch.float)
             self.log_episode_reshaped_return += self.rewards[i]
             self.log_episode_original_return += original_rewards
@@ -96,6 +113,7 @@ class MyPPO(PPOAlgo):
             self.log_episode_original_return *= self.mask
             self.log_episode_num_frames *= self.mask
 
+        #self.dataframe.to_csv('./doorkey_outputs.csv')
         # Add advantage and return to experiences
 
         preprocessed_obs = self.preprocess_obss(self.obs, device=self.device)
@@ -131,7 +149,13 @@ class MyPPO(PPOAlgo):
             # T x P -> P x T -> (P * T) x 1
             exps.mask = self.masks.transpose(0, 1).reshape(-1).unsqueeze(1)
         # for all tensors below, T x P -> P x T -> P * T
-        exps.action = self.actions.transpose(0, 1).reshape(-1)
+        if self.actions.dim() == 3:
+            # continuous actions
+            exps.action = self.actions.transpose(0, 1).reshape(-1, self.actions.shape[-1])
+        else:
+            assert self.actions.dim() == 2
+            # discrete actions
+            exps.action = self.actions.transpose(0, 1).reshape(-1)
         exps.value = self.values.transpose(0, 1).reshape(-1)
         exps.reward = self.rewards.transpose(0, 1).reshape(-1)
         exps.advantage = self.advantages.transpose(0, 1).reshape(-1)

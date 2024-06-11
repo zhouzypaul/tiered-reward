@@ -29,6 +29,9 @@ parser.add_argument("--memory", action="store_true", default=False,
                     help="add a LSTM to the model")
 parser.add_argument("--text", action="store_true", default=False,
                     help="add a GRU to the model")
+parser.add_argument("--reward-function", "-r", default="original",
+                            help="What kind of reward function to use for the environment", 
+                                                choices=['original', 'sparse', 'step_penalty', 'tier', 'tier_based_shaping'])
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -52,7 +55,7 @@ if __name__ == "__main__":
 
     # Load agent
 
-    model_dir = utils.get_model_dir(args.experiment_name, args.seed)
+    model_dir = utils.get_model_dir(args.experiment_name, args.reward_function, args.seed)
     agent = utils.Agent(env.observation_space, env.action_space, model_dir,
                         argmax=args.argmax, num_envs=args.procs,
                         use_memory=args.memory, use_text=args.text)

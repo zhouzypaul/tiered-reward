@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.categorical import Categorical
+import numpy as np
 import torch_ac
 
 
@@ -106,6 +107,136 @@ class ACModel(nn.Module, torch_ac.RecurrentACModel):
     def _get_embed_text(self, text):
         _, hidden = self.text_rnn(self.word_embedding(text))
         return hidden[-1]
+    
+    
+class GaussianHeadWithStateIndependentCovariance(nn.Module):
+    """Taken from pfrl.policies.gaussian_policy
+    
+    Gaussian head with state-independent learned covariance.
+
+    This link is intended to be attached to a neural network that outputs
+    the mean of a Gaussian policy. The only learnable parameter this link has
+    determines the variance in a state-independent way.
+
+    State-independent parameterization of the variance of a Gaussian policy
+    is often used with PPO and TRPO, e.g., in https://arxiv.org/abs/1709.06560.
+
+    Args:
+        action_size (int): Number of dimensions of the action space.
+        var_type (str): Type of parameterization of variance. It must be
+            'spherical' or 'diagonal'.
+        var_func (callable): Callable that computes the variance from the var
+            parameter. It should always return positive values.
+        var_param_init (float): Initial value the var parameter.
+    """
+    def __init__(
+        self,
+        action_size,
+        var_type="spherical",
+        var_func=nn.functional.softplus,
+        var_param_init=0,
+    ):
+        super().__init__()
+
+        self.var_func = var_func
+        var_size = {"spherical": 1, "diagonal": action_size}[var_type]
+
+        self.var_param = nn.Parameter(
+            torch.tensor(
+                np.broadcast_to(var_param_init, var_size),
+                dtype=torch.float,
+            )
+        )
+
+    def forward(self, mean):
+        """Return a Gaussian with given mean.
+
+        Args:
+            mean (torch.Tensor or ndarray): Mean of Gaussian.
+
+        Returns:
+            torch.distributions.Distribution: Gaussian whose mean is the
+                mean argument and whose variance is computed from the parameter
+                of this link.
+        """
+        var = self.var_func(self.var_param)
+        return torch.distributions.Independent(
+            torch.distributions.Normal(loc=mean, scale=torch.sqrt(var)), 1
+        )
+
+
+class StateSpaceACModel(nn.Module, torch_ac.RecurrentACModel):
+    """This is for state space only, with continuous actions (e.g. D4RL envs)"""
+    def __init__(self, obs_space, action_space, use_memory=False, use_text=False):
+        """use_memory and use_text are not supported yet"""
+        assert not use_memory
+        assert not use_text
+        super().__init__()
+
+        self.obs_space = obs_space
+        self.action_space = action_space
+        self.use_text = use_text
+        self.use_memory = use_memory
+
+        # Define image embedding
+        self.embedding = nn.Sequential(
+            nn.Linear(obs_space.low.size, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+            nn.Linear(64, 64),
+            nn.ReLU(),
+        ).double()
+
+        # Resize image embedding
+        self.embedding_size = 64
+        if self.use_text:
+            self.embedding_size += self.text_embedding_size
+
+        # Define actor's model
+        self.actor = nn.Sequential(
+            nn.Linear(self.embedding_size, 64),
+            nn.Tanh(),
+            nn.Linear(64, 64),
+            nn.Tanh(),
+            nn.Linear(64, action_space.low.size),
+            GaussianHeadWithStateIndependentCovariance(
+                action_size=action_space.low.size,
+                var_type="diagonal",
+                var_func=lambda x: torch.exp(2 * x),  # Parameterize log std
+                var_param_init=0,  # log std = 0 => std = 1
+            ),
+        ).double()
+
+        # Define critic's model
+        self.critic = nn.Sequential(
+            nn.Linear(self.embedding_size, 64),
+            nn.Tanh(),
+            nn.Linear(64, 64),
+            nn.Tanh(),
+            nn.Linear(64, 1)
+        ).double()
+
+        # Initialize parameters correctly
+        self.apply(init_params)
+
+    @property
+    def memory_size(self):
+        return 2*self.semi_memory_size
+
+    @property
+    def semi_memory_size(self):
+        return self.embedding_size
+
+    def forward(self, obs, memory):
+        embedding = self.embedding(obs)
+
+        dist = self.actor(embedding)
+
+        x = self.critic(embedding)
+        value = x.squeeze(1)
+
+        return dist, value, memory
 
 
 class ResidualBlock(nn.Module):
@@ -169,7 +300,6 @@ class ImpalaCNN(nn.Module, torch_ac.RecurrentACModel):
         NOTE: use_memory is not supported yet.
         currently not even going to bother with use_text
         """
-
         super(ImpalaCNN, self).__init__()
         self.use_memory = use_memory
         assert not self.use_memory, "use_memory is not supported yet"

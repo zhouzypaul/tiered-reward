@@ -7,9 +7,37 @@ from PIL import Image
 import gymnasium as gym
 from gymnasium.core import Wrapper, ObservationWrapper
 from minigrid.wrappers import RGBImgObsWrapper, ImgObsWrapper, ReseedWrapper, FullyObsWrapper
-
+import os 
 from reward.atari.reward_wrappers import get_k_tiered_reward
+import pandas as pd
 
+import threading
+from collections import deque
+
+global lock
+lock = threading.Lock()
+
+global num_goal_reaches
+num_goal_reaches = pd.DataFrame(columns=['reached_goal'])
+
+global df
+
+
+def write_to_file(row_data):
+
+    with lock:
+        df.loc[len(df.index)] = row_data
+        df.to_csv('./per_step_logging.csv')
+
+def increment_goal_reaches():
+    global num_goal_reaches
+    with lock:
+        num_goal_reaches.loc[len(num_goal_reaches.index)] = [True]
+
+
+def get_num_goal_reaches():
+    print(num_goal_reaches)
+    return len(num_goal_reaches)
 
 class MinigridInfoWrapper(Wrapper):
     """Include extra information in the info dict for debugging/visualizations."""
@@ -20,6 +48,7 @@ class MinigridInfoWrapper(Wrapper):
 
         # Store the test-time start state when the environment is constructed
         self.official_start_obs, self.official_start_info = self.reset()
+        #self.num_times_reach_goal = 0
 
     def reset(self):
         obs, info = self.env.reset()
@@ -29,13 +58,14 @@ class MinigridInfoWrapper(Wrapper):
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
         self._timestep += 1
-        info = self._modify_info_dict(info, terminated, truncated)
+        info = self._modify_info_dict(info, terminated, truncated, obs)
         return obs, reward, terminated, truncated, info
 
-    def _modify_info_dict(self, info, terminated=False, truncated=False):
+    def _modify_info_dict(self, info, terminated=False, truncated=False, obs=None):
         info['player_pos'] = tuple(self.env.agent_pos)
         info['player_x'] = self.env.agent_pos[0]
         info['player_y'] = self.env.agent_pos[1]
+        info['observation'] = obs
         info['truncated'] = truncated
         info['terminated'] = terminated
         info['needs_reset'] = truncated  # pfrl needs this flag
@@ -74,6 +104,7 @@ class RewardWrapper(Wrapper):
     
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
+
         info['original_reward'] = reward
         r = self._modify_reward(reward, info)
         return obs, r, terminated, truncated, info
@@ -85,13 +116,22 @@ class RewardWrapper(Wrapper):
 
 class SparseRewardWrapper(RewardWrapper):
     """Return a reward of 1 when you reach the goal and 0 otherwise."""
+    def initialize_num_times_reach_goal(self):
+        self.num_times_reach_goal  = 0
     def _modify_reward(self, reward, info):
+        #self.num_times_reach_goal += 1 if reward > 0 else 0
+        if reward > 0:
+            increment_goal_reaches()
+            print('at goal')
         return float(reward > 0)
 
 
 class StepPenaltyRewardWrapper(RewardWrapper):
     """Return a reward of -1 for each step, and 0 for you reach the goal."""
     def _modify_reward(self, reward, info):
+        if reward > 0:
+            increment_goal_reaches()
+            print('at goal')
         return 0 if reward > 0 else -1
 
 
@@ -135,7 +175,8 @@ class TierRewardWrapper(Wrapper):
         self.h = 1 / (1-gamma)
         self.delta = delta  # good tier r = H * prev tier + delta 
         self.tiers_hitting_count = np.zeros(num_tiers, dtype=np.int32)
-    
+        self.agent_start_pos = None
+
     def reset_hitting_count(self):
         """not used"""
         self.tiers_hitting_count = np.zeros(self.num_tiers, dtype=np.int32)
@@ -143,8 +184,11 @@ class TierRewardWrapper(Wrapper):
     def reset(self, reset_count=False, **kwargs):
         if reset_count:
             self.reset_hitting_count()
-        return self.env.reset(**kwargs)
-    
+        
+        out = self.env.reset(**kwargs)
+        self.agent_start_pos = self.env.agent_pos
+        self.auxilliary_reset()
+        return out
     def step(self, action):
         obs, reward, terminated, truncated, info = self.env.step(action)
         info['original_reward'] = reward
@@ -163,6 +207,10 @@ class TierRewardWrapper(Wrapper):
         """
         return get_k_tiered_reward(tier, self.num_tiers, self.h, self.delta)
     
+    @abstractmethod
+    def auxilliary_reset(self):
+        return None
+
     @abstractmethod
     def log_tier_hitting_count(self, info):
         """not used"""
@@ -201,8 +249,344 @@ class TierBasedShapingReward(Wrapper):
         
         self.current_obs = next_obs
         self.current_tier = ns_tier
+
         
         return next_obs, shaped_reward, terminated, truncated, info
+    
+    
+class OriginalReward(TierRewardWrapper):
+    """dummy wrapper so we can log info['original_reward'] without breaking the train loop"""
+    def _modify_reward(self, reward, info):
+        return reward
+
+    def log_tier_hitting_count(self, info):
+        pass
+
+
+class DoorKeyMiniGridTierReward(TierRewardWrapper):
+    """
+    Tier Reward for MiniGrid-DoorKey-nxn-v0
+    
+    Tiers are assigned based on teht agent's L1 distance to the goal
+    
+    The goal is always its own tier -- the highest tier.
+    The rest of the tiers are spread out evenly according to the L1 distance.
+    
+    NOTE: this assumes there is only a single goal state
+    """
+    prev_has_key = False
+    prev_door_open = False
+
+    @cached_property
+    def goal_pos(self):
+        return determine_goal_pos(self.env)
+    
+    
+    def key_pos(self):
+        return determine_key_pos(self.env)
+    
+    @cached_property
+    def door_pos(self):
+        return determine_door_pos(self.env)
+    
+    
+    def check_door_open(self):
+        return determine_is_door_open(self.env)
+
+    def check_has_key(self):
+        return determine_has_key(self.env)
+
+
+    @cached_property
+    def max_dist(self):
+        # two corner margin & -1 each side for the distance
+        return self.env.grid.width + self.env.grid.height - 6
+    
+    
+
+    def temp(self, info):
+        
+        def get_l1_distance(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+        
+        dist_to_goal = get_l1_distance(info['player_pos'], self.goal_pos)
+        
+        if dist_to_goal == 0:
+            return self.num_tiers - 1
+        else:
+            return math.floor((self.num_tiers - 1) * (1 - dist_to_goal / self.max_dist))
+
+    def _get_tier(self, info):
+        def get_l1_distance(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+        def round_to_half(n):
+            return round(n * 2) / 2
+        
+        key_pos = self.key_pos()
+         
+        dist_to_goal = get_l1_distance(info['player_pos'], self.goal_pos)
+        dist_to_door = get_l1_distance(info['player_pos'], self.door_pos)
+        dist_to_key = get_l1_distance(info['player_pos'], key_pos) if key_pos is not None else 0
+
+        door_open = self.check_door_open()
+        has_key = self.check_has_key()
+    
+        #print(has_key, self.prev_has_key, key_pos)    
+        
+        #tier 6: reach final goal
+        #exactly T reward
+        if dist_to_goal == 0:
+            out  =  (self.num_tiers-1)
+            #self.num_times_reach_goal += 1
+            
+            #increment_goal_reaches()
+            #print(len(num_goal_reaches))
+            print('at goal')
+            
+        #tier 5: walking to the goal after opening door
+        #between 2T/3 < t < T
+        elif door_open and has_key and self.prev_door_open:
+            out =  math.floor((2*(self.num_tiers-1))/3 + ((self.num_tiers-1)/3)*(1-dist_to_goal/self.max_dist))
+
+        #tier 3: obtain the key and walk to the door
+        #between T/3 < t < 2T/3
+        elif door_open and not self.prev_door_open:
+            out = (2*(self.num_tiers-1))//3
+        elif (has_key and not door_open and self.prev_has_key):
+            out =  math.floor(((self.num_tiers-1)/3) + ((self.num_tiers-1)/3)*(1-dist_to_door/self.max_dist))
+            
+        #tier 1: searching for key
+        #between 0 < t < T/3
+        elif has_key and not self.prev_has_key:
+            out =  (self.num_tiers-1)//3
+        elif not has_key:
+            out =  math.floor(((self.num_tiers-1)/3)*(1-dist_to_key/self.max_dist))
+            
+        else:
+            #True False False False
+            print(has_key, door_open, self.prev_has_key, self.prev_door_open)
+            raise NotImplemented
+        #'door_open', 'has_key','dist_to_goal','dist_to_key','dist_to_goal','tier'
+        #df.loc[len(df.index)] = [door_open, has_key, dist_to_key,dist_to_door, dist_to_goal, info['player_pos'], self.key_pos(), self.door_pos, self.goal_pos, out]
+        #df.to_csv('./temp_doorkey_tiers.csv')
+        
+        #write_to_file([door_open, has_key, dist_to_key, dist_to_door, dist_to_goal, info['player_pos'], self.key_pos(), self.door_pos, self.goal_pos, out, info['original_reward']])
+
+        self.prev_has_key = has_key
+        self.prev_door_open = door_open
+        #print('NUM GOAL: ', self.num_times_reach_goal)
+        return out
+    def _modify_reward(self, reward, info):
+        tier = self._get_tier(info)
+        return self._get_tier_reward(tier)
+
+    def log_tier_hitting_count(self, info):
+        pass
+
+class CrossingMiniGridTierReward(TierRewardWrapper):
+    """
+    Tier Reward for MiniGrid-LavaCrossingS9N1-v0
+    
+    Tiers are assigned based on the BFS distance between the agent and the goal
+    
+    The goal is always its own tier -- the highest tier.
+    The rest of the tiers are spread out evenly according to the BFS distance.
+    
+    NOTE: this assumes there is only a single goal state
+    """
+    @cached_property
+    def goal_pos(self):
+        return determine_goal_pos(self.env)
+    
+    def crossing_pos(self):
+        return determine_crossing_pos(self.env)
+    
+    @cached_property
+    def max_dist(self):
+        # two corner margin & -1 each side for the distance
+        return self.env.grid.width + self.env.grid.height - 6
+    
+    def _get_tier(self, info):
+        def get_l1_distance(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+        
+        dist_goal = get_l1_distance(info['player_pos'], self.goal_pos)
+       
+
+        #case 2: episode has terminated but the agent has not reached the goal + there are still steps in teh episode
+        if dist_goal == 0:
+            #when reaching goal return num tiers -1 (max tier reward)
+            out = self.num_tiers-1
+        elif info['terminated'] and (self.env.step_count < self.env.max_steps):
+            out = 0
+        else:
+           #when not hitting lava but just moving around, distribute tiers between 1 to self.num_tiers-1 inclusive
+           out = 1 + round((self.num_tiers-2) * (1 - (dist_goal/self.max_dist)))
+        
+        # print(info['player_pos'], self.goal_pos, out, dist_goal, self.max_dist)
+        return out
+
+    def _modify_reward(self, reward, info):
+        tier = self._get_tier(info)
+        return self._get_tier_reward(tier)
+
+    def log_tier_hitting_count(self, info):
+        pass
+
+
+class CrossingMiniGridTierRewardOld(TierRewardWrapper):
+    """
+    Tier Reward for MiniGrid-LavaCrossingS9N1-v0
+    
+    Tiers are assigned based on the BFS distance between the agent and the goal
+    
+    The goal is always its own tier -- the highest tier.
+    The rest of the tiers are spread out evenly according to the BFS distance.
+    
+    NOTE: this assumes there is only a single goal state
+    """
+    @property
+    def goal_pos(self):
+        return determine_goal_pos(self.env)
+    
+    def populate_bfs_distance(self):
+        from minigrid.core.world_object import Goal, Wall, Lava
+        bfs_matrix = float('-inf')*np.ones((self.env.grid.height, self.env.grid.width))
+
+        goal_pos = determine_goal_pos(self.env)
+
+        unvisited_locs = deque()
+        unvisited_locs.append((goal_pos,0))
+
+        while len(unvisited_locs)>0:
+            (curr_loc, dist) = unvisited_locs.popleft()
+
+
+            if curr_loc[0] < 0 or curr_loc[0] >= self.env.grid.width:
+                continue
+            if curr_loc[1] < 0 or curr_loc[1] >= self.env.grid.height:
+                continue
+
+            if isinstance(self.env.grid.get(curr_loc[1],curr_loc[0]), Wall) or isinstance(self.env.grid.get(curr_loc[1],curr_loc[0]), Lava) :
+                bfs_matrix[curr_loc[1], curr_loc[0]] = -1
+                continue
+            
+            elif bfs_matrix[curr_loc[1],curr_loc[0]] == float('-inf'):
+                bfs_matrix[curr_loc[1], curr_loc[0]] = int(dist)
+
+                #above and below
+                unvisited_locs.append(((curr_loc[0], curr_loc[1]-1), dist+1))
+                unvisited_locs.append(((curr_loc[0], curr_loc[1]+1), dist+1))
+
+                #left and right
+                unvisited_locs.append(((curr_loc[0]-1, curr_loc[1]), dist+1))
+                unvisited_locs.append(((curr_loc[0]+1, curr_loc[1]), dist+1))
+        
+        return bfs_matrix
+    
+    @cached_property
+    def max_dist(self):
+        # two corner margin & -1 each side for the distance
+        return self.env.grid.width + self.env.grid.height - 6
+    
+    def _get_tier(self, info):
+
+        def get_l1_distance(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+        
+        player_pos = info['player_pos']
+        bfs_matrix = self.populate_bfs_distance()
+
+        
+
+        if bfs_matrix[player_pos[1], player_pos[0]] < 0:
+            out = 0
+        elif get_l1_distance(player_pos, self.goal_pos) == 0:
+            out = self.num_tiers-1
+        else:
+            out = 1 + np.floor((self.num_tiers-2)*(1 - (bfs_matrix[player_pos[1], player_pos[0]]/np.max(bfs_matrix)) ))
+
+        print(player_pos, self.goal_pos, out, bfs_matrix[player_pos[1], player_pos[0]], np.max(bfs_matrix))
+        
+        return out
+
+    def _modify_reward(self, reward, info):
+        tier = self._get_tier(info)
+        return self._get_tier_reward(tier)
+
+    def log_tier_hitting_count(self, info):
+        pass
+
+
+class FourRoomsMiniGridTierReward(TierRewardWrapper):
+    """
+    Tier Reward for MiniGrid-FourRooms-v0
+    
+    Tiers are assigned based on teht agent's L1 distance to the goal
+    
+    The goal is always its own tier -- the highest tier.
+    The rest of the tiers are spread out evenly according to the L1 distance.
+    
+    NOTE: this assumes there is only a single goal state
+    """
+    @cached_property
+    def goal_pos(self):
+        return determine_goal_pos(self.env)
+    
+    @cached_property
+    def max_dist(self):
+        # two corner margin & -1 each side for the distance
+        return self.env.grid.width + self.env.grid.height - 6
+    
+    def auxilliary_reset(self):
+        
+        from minigrid.core.world_object import Wall
+        self.dist_to_goal = np.ones((self.env.grid.width, self.env.grid.height))
+        self.dist_to_goal *= np.inf
+
+        unvisited_locs = deque()
+        unvisited_locs.append((self.goal_pos,0))
+
+        while len(unvisited_locs) > 0:
+            (curr_loc, dist) = unvisited_locs.popleft()
+             
+            if  dist < self.dist_to_goal[curr_loc[0]][curr_loc[1]] and not isinstance(self.env.grid.get(curr_loc[0], curr_loc[1]), Wall):
+
+                self.dist_to_goal[curr_loc[0]][curr_loc[1]] = dist
+                
+                if curr_loc[0]+1 < self.dist_to_goal.shape[0]:
+                    unvisited_locs.append( ( ( curr_loc[0]+1 , curr_loc[1]), dist+1 ) )
+                if curr_loc[0]-1 >= 0:
+                    unvisited_locs.append( ( ( curr_loc[0]-1, curr_loc[1]), dist+1 ) )
+                if curr_loc[1] + 1 < self.dist_to_goal.shape[1]:
+                    unvisited_locs.append( ( (curr_loc[0], curr_loc[1]+1), dist+1 ) )
+                if curr_loc[1] - 1 >= 0:
+                    unvisited_locs.append( ( (curr_loc[0], curr_loc[1]-1), dist+1 ) )
+
+        self.dist_to_goal[np.where(self.dist_to_goal==np.inf)] = -1
+
+
+    def _get_tier(self, info):
+        def get_l1_distance(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+        
+        dist_goal = get_l1_distance(info['player_pos'], self.goal_pos) 
+        #(player_c, player_r) = info['player_pos']    
+        
+        if dist_goal == 0:
+            print('goal')
+            out = self.num_tiers-1
+        else:
+           out = math.floor((self.num_tiers-1) * (1 - (dist_goal/self.max_dist)))
+
+        return out
+    def _modify_reward(self, reward, info):
+        tier = self._get_tier(info)
+        return self._get_tier_reward(tier)
+
+    def log_tier_hitting_count(self, info):
+        pass
 
 
 class EmptyMiniGridTierReward(TierRewardWrapper):
@@ -231,10 +615,16 @@ class EmptyMiniGridTierReward(TierRewardWrapper):
         
         dist = get_l1_distance(info['player_pos'], self.goal_pos)
         if dist == 0:
-            return self.num_tiers - 1
+            out = self.num_tiers - 1
+            #self.num_times_reach_goal += 1
+            #increment_goal_reaches()
+            print('goal')
         else:
-            return math.floor((self.num_tiers - 1) * (1 - dist / self.max_dist))
-    
+            out = math.floor((self.num_tiers - 1) * (1 - dist / self.max_dist))
+        
+        #write_to_file([info['player_pos'], self.goal_pos, out, info['original_reward'], dist])
+        return out
+
     def _modify_reward(self, reward, info):
         tier = self._get_tier(info)
         return self._get_tier_reward(tier)
@@ -248,6 +638,27 @@ class GrayscaleWrapper(ObservationWrapper):
         observation = observation.mean(axis=0)[np.newaxis, :, :]
         return observation.astype(np.uint8)
 
+def check_if_positon_lava(env, x_cor, y_cor):
+    
+    from minigrid.core.world_object import Lava
+    
+    return True if isinstance(env.grid.get(x_cor, y_cor), Lava) else False
+
+def determine_crossing_pos(env):
+    from minigrid.core.world_object import Lava
+    from minigrid.core.world.object import Wall
+
+    def check_crossing(tile, tile_above, tile_below, tile_left, tile_right):
+        return not(isinstance(tile, Lava) and isinstance(tile,Wall)) and (isinstance(tile_above, Lava) or isinstance(tile_below, Lava) or isinstance(tile_left, Lava) or isinstance(tile_right, Lava))
+
+    for i in range(env.grid.width):
+        for j in range(env.grid.height):
+            tile = env.grid.get(i,j)
+            tile_above = env.grid.get(i, j-1) if j-1 >=0 else None
+            tile_below = env.grid.get(i, j+1) if j+1 < env.grid.height else None
+            
+            if check_crossing(tile, tile_above, tile_below):
+                return i, j
 
 def determine_goal_pos(env):
     """Convinence hacky function to determine the goal location."""
@@ -258,6 +669,25 @@ def determine_goal_pos(env):
             if isinstance(tile, Goal):
                 return i, j
 
+def print_grid_display(env):
+
+    from minigrid.core.world_object import Goal, Wall
+
+    grid = np.empty((env.grid.width, env.grid.height))
+
+    for i in range(env.grid.width):
+        for j in range(env.grid.height):
+            tile = env.grid.get(i,j)
+
+            if isinstance(tile, Goal):
+                grid[i][j] = 1
+            elif isinstance(tile, Wall):
+                grid[i][j] = 2
+            else:
+                grid[i][j] = 0
+
+    for r in range(env.grid.width):
+        print(grid[r])
 
 def determine_is_door_open(env):
     """Convinence hacky function to determine the goal location."""
@@ -267,6 +697,34 @@ def determine_is_door_open(env):
             tile = env.grid.get(i, j)
             if isinstance(tile, Door):
                 return tile.is_open
+
+
+
+def determine_door_pos(env):
+    """Convenient hacky function to determine the door location"""
+    from minigrid.core.world_object import Door
+
+    for i in range(env.grid.width):
+        for j in range(env.grid.height):
+            tile = env.grid.get(i,j)
+            if isinstance(tile, Door):
+                return i,j
+
+def determine_has_key(env):
+    """Convenient hacky function to determine if agent has grabbed key"""
+    from minigrid.core.world_object import Key
+
+    return isinstance(env.carrying, Key)
+
+
+def determine_key_pos(env):
+    """Convenience hacky function to determine the key location. """
+    from minigrid.core.world_object import Key
+    for i in range(env.grid.width):
+        for j in range(env.grid.height):
+            tile = env.grid.get(i,j)
+            if isinstance(tile, Key):
+                return i, j
 
 
 def environment_builder(
@@ -309,9 +767,20 @@ def environment_builder(
         env = SparseRewardWrapper(env)
     elif reward_fn == 'step_penalty':
         env = StepPenaltyRewardWrapper(env)
+    
     elif reward_fn in ('tier', 'tier_based_shaping'):
         if 'empty' in level_name.lower():
             env = EmptyMiniGridTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta)
+        
+        elif 'door' in level_name.lower():
+            env = DoorKeyMiniGridTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta)
+        
+        elif 'four' in level_name.lower():
+            env = FourRoomsMiniGridTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta)
+            #env.store_start_pos()
+        elif 'crossing' in level_name.lower():
+            env = CrossingMiniGridTierReward(env, num_tiers=num_tiers, gamma=gamma, delta=delta)
+
         else:
             raise NotImplementedError('This environment does not yet support tiered rewards')
         
@@ -320,6 +789,7 @@ def environment_builder(
         
     else:
         assert reward_fn == 'original'
+        env = OriginalReward(env, num_tiers=None, gamma=gamma, delta=None)
         
     # normalize reward
     if normalize_reward:

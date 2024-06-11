@@ -2,18 +2,23 @@ import sys
 import time
 import argparse
 import datetime
+import tempfile
+
 import torch_ac
 import tensorboardX
+import wandb
 
 import reward.minigrid.utils as utils
 import reward.utils as general_utils
 from reward.minigrid.utils import device
 from reward.minigrid.agent import MyPPO
-from reward.minigrid.model import ImpalaCNN
-from reward.minigrid.minigrid_wrappers import environment_builder
-
+from reward.minigrid.model import ImpalaCNN, StateSpaceACModel
+from reward.minigrid.envs import environment_builder
+from reward.minigrid.minigrid_wrappers import get_num_goal_reaches
 
 # Parse arguments
+#global num_goal_reaches
+#num_goal_reaches = 0
 
 parser = argparse.ArgumentParser()
 
@@ -24,6 +29,10 @@ parser.add_argument("--env", required=True,
                     help="name of the environment to train on (REQUIRED)")
 parser.add_argument("--experiment_name", "-e", default=None,
                     help="name of the experiment (default: {ENV}_{ALGO}_{TIME}). Used to name the saving dir.")
+parser.add_argument("--debug", action="store_true", default=False,
+                    help="Debug mode. Don't log wandb online.")
+parser.add_argument("--project", type=str, default="tiered-reward",
+                    help="project id for wandb")
 parser.add_argument("--seed", type=int, default=0,
                     help="random seed (default: 0)")
 parser.add_argument("--log-interval", type=int, default=10,
@@ -32,7 +41,7 @@ parser.add_argument("--save-interval", type=int, default=50,
                     help="number of updates between two saves (default: 10, 0 means no saving)")
 parser.add_argument("--procs", type=int, default=16,
                     help="number of processes (default: 16). This is also the number of parallel envs.")
-parser.add_argument("--frames", type=int, default=200_000,
+parser.add_argument("--frames", type=float, default=1e7,
                     help="number of frames of training (default: 1e7)")
 
 # Params for environment
@@ -47,6 +56,7 @@ parser.add_argument("--gamma", type=float, default=0.99,
                     help="Discount factor of MDP.")
 parser.add_argument("--delta", type=float, default=5,
                     help="offset used in the custom reward function")
+parser.add_argument("--max-steps", type=int, default=None, help="change max steps for environment from default value")
 
 # Parameters for main algorithm
 parser.add_argument("--epochs", type=int, default=4,
@@ -96,6 +106,18 @@ if __name__ == "__main__":
     model_dir = utils.get_model_dir(exp_name, sub_dir, args.seed)
     general_utils.create_log_dir(model_dir, remove_existing=True)
 
+    # Set wandb
+    wandb_output_dir = tempfile.mkdtemp()  # redirect wandb output to a temp dir
+    mode = 'online' if not args.debug else 'disabled'
+    wandb.init(
+        project=args.project,
+        sync_tensorboard=True,
+        name=exp_name,
+        dir=wandb_output_dir,
+        config=vars(args),
+        mode=mode,
+    )
+
     # Load loggers and Tensorboard writer
 
     txt_logger = utils.get_txt_logger(model_dir)
@@ -129,7 +151,7 @@ if __name__ == "__main__":
             reward_fn=args.reward_function,
             normalize_reward=args.normalize_reward,
             grayscale=False,
-            max_steps=None,
+            max_steps=args.max_steps,
             render_mode=None
         )
         envs.append(env)
@@ -144,15 +166,22 @@ if __name__ == "__main__":
     txt_logger.info("Training status loaded\n")
 
     # Load observations preprocessor
-
-    obs_space, preprocess_obss = utils.get_obss_preprocessor(envs[0].observation_space)
-    if "vocab" in status:
-        preprocess_obss.vocab.load_vocab(status["vocab"])
-    txt_logger.info("Observations preprocessor loaded")
+    if 'MiniGrid' in args.env:
+        obs_space, preprocess_obss = utils.get_obss_preprocessor(envs[0].observation_space)
+        if "vocab" in status:
+            preprocess_obss.vocab.load_vocab(status["vocab"])
+        txt_logger.info("Observations preprocessor loaded")
+    else:
+        obs_space = envs[0].observation_space
+        preprocess_obss = None
 
     # Load model
-    acmodel = ImpalaCNN(obs_space['image'], num_outputs=envs[0].action_space.n, use_memory=args.mem, use_text=args.text)
-    # acmodel = ACModel(obs_space, envs[0].action_space, args.mem, args.text)
+    if 'MiniGrid' in args.env:
+        acmodel = ImpalaCNN(obs_space['image'], num_outputs=envs[0].action_space.n, use_memory=args.mem, use_text=args.text)
+    elif 'antmaze' in args.env:
+        acmodel = StateSpaceACModel(obs_space, envs[0].action_space, args.mem, args.text)
+    else:
+        raise NotImplementedError('environment not supported')
     if "model_state" in status:
         acmodel.load_state_dict(status["model_state"])
     acmodel.to(device)
@@ -175,7 +204,7 @@ if __name__ == "__main__":
     if "optimizer_state" in status:
         algo.optimizer.load_state_dict(status["optimizer_state"])
     txt_logger.info("Optimizer loaded\n")
-
+    
     # Train model
 
     num_frames = status["num_frames"]
@@ -190,7 +219,8 @@ if __name__ == "__main__":
         logs2 = algo.update_parameters(exps)
         logs = {**logs1, **logs2}
         update_end_time = time.time()
-
+        
+        
         num_frames += logs["num_frames"]
         update += 1
 
@@ -221,7 +251,8 @@ if __name__ == "__main__":
 
             header += ["return_" + key for key in return_per_episode.keys()]
             data += return_per_episode.values()
-
+            
+            #txt_logger.info('Goal Reaches: {}'.format(get_num_goal_reaches()))
             if not already_written_header:
                 csv_logger.writerow(header)
                 already_written_header = True
@@ -230,7 +261,8 @@ if __name__ == "__main__":
             
             for field, value in zip(header, data):
                 tb_writer.add_scalar(field, value, num_frames)
-
+            
+            
         # Save status
 
         if args.save_interval > 0 and update % args.save_interval == 0:
@@ -240,3 +272,6 @@ if __name__ == "__main__":
                 status["vocab"] = preprocess_obss.vocab.vocab
             utils.save_status(status, model_dir)
             txt_logger.info("Status saved")
+
+
+    #print('Goal Reaches: ', get_num_goal_reaches())
